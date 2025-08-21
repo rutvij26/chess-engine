@@ -1,0 +1,4 @@
+python-chess>=1.9.0
+numpy>=1.21.0
+torch>=1.9.0
+matplotlib>=3.3.0
