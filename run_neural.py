@@ -53,7 +53,7 @@ def main():
                     print("Invalid move, try again.")
             else:  # Black's turn (AI)
                 print("AI is thinking...")
-                best_move = engine.get_best_move(3, 2.0)
+                best_move = engine.get_best_move(3, 2.0, verbose=False)
                 if best_move:
                     engine.make_move(best_move)
                     print(f"AI move: {best_move}")

@@ -186,10 +186,11 @@ class NeuralChessEngine:
         
         return score
     
-    def get_best_move(self, depth: int, time_limit: float = 5.0) -> str:
+    def get_best_move(self, depth: int, time_limit: float = 5.0, verbose: bool = True) -> str:
         """Get best move using minimax with neural evaluation"""
         start_time = time.time()
         best_move = None
+        best_score = float('-inf') if self.board.turn else float('inf')
         
         # Iterative deepening
         for current_depth in range(1, depth + 1):
@@ -200,9 +201,13 @@ class NeuralChessEngine:
                 score, move = self.search(current_depth)
                 if move:
                     best_move = move
-                    print(f"Depth {current_depth}: {move.uci()} (score: {score:.1f})")
+                    best_score = score
+                    # Only print the final result for this depth if verbose
+                    if verbose:
+                        print(f"Depth {current_depth}: {move.uci()} (score: {score:.1f})")
             except Exception as e:
-                print(f"Error at depth {current_depth}: {e}")
+                if verbose:
+                    print(f"Error at depth {current_depth}: {e}")
                 break
         
         return best_move.uci() if best_move else ""
@@ -261,7 +266,7 @@ class NeuralChessEngine:
             
             # Make a move (either best move or random for exploration)
             if random.random() < 0.8:  # 80% best move, 20% random
-                best_move = self.get_best_move(3, 1.0)
+                best_move = self.get_best_move(3, 1.0, verbose=False)
                 if best_move:
                     move = chess.Move.from_uci(best_move)
                     move_history.append(move.uci())

@@ -313,7 +313,7 @@ def test_trained_model(model_path, num_test_games=10):
         
         while not engine.board.is_game_over() and moves_played < 50:
             # Get best move from neural network
-            best_move = engine.get_best_move(4, 2.0)
+            best_move = engine.get_best_move(4, 2.0, verbose=False)
             
             if best_move:
                 engine.make_move(best_move)

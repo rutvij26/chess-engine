@@ -105,7 +105,7 @@ def interactive_visual_play():
             # Get engine's response
             if not engine.board.is_game_over():
                 print("🤖 Engine is thinking...")
-                best_move = engine.get_best_move(3, 2.0)
+                best_move = engine.get_best_move(3, 2.0, verbose=False)
                 
                 if best_move:
                     engine.make_move(best_move)
