@@ -10,14 +10,6 @@ from typing import List, Tuple, Optional, Dict, Any
 import pickle
 import os
 
-# Import visual board
-try:
-    from visual.visual_chess_board import VisualChessBoard
-    VISUAL_AVAILABLE = True
-except ImportError:
-    VISUAL_AVAILABLE = False
-    print("Visual board not available - install visual/visual_chess_board.py for better display")
-
 class ChessNeuralNetwork(nn.Module):
     """Neural network for chess position evaluation"""
     
@@ -78,7 +70,7 @@ class ChessDataset(Dataset):
 class NeuralChessEngine:
     """Chess engine that learns from self-play using neural networks"""
     
-    def __init__(self, model_path: str = None, visual_mode: bool = True):
+    def __init__(self, model_path: str = None):
         self.board = chess.Board()
         
         # GPU acceleration setup
@@ -115,13 +107,6 @@ class NeuralChessEngine:
         # Training data storage
         self.training_positions = []
         self.training_evaluations = []
-        
-        # Visual board setup
-        self.visual_mode = visual_mode and VISUAL_AVAILABLE
-        if self.visual_mode:
-            self.visual_board = VisualChessBoard()
-        else:
-            self.visual_board = None
         
     def board_to_tensor(self, board: chess.Board) -> torch.Tensor:
         """Convert chess board to neural network input tensor"""
@@ -254,10 +239,6 @@ class NeuralChessEngine:
         move_history = []
         move_num = 0
         
-        if show_progress and self.visual_mode:
-            self.visual_board.display_board(self.board, evaluation=0.0, move_number=1)
-            time.sleep(0.5)
-        
         while not self.board.is_game_over():
             move_num += 1
             
@@ -289,14 +270,9 @@ class NeuralChessEngine:
             self.training_positions.append(position_tensor)
             self.training_evaluations.append(post_eval)
             
-            # Show visual progress
-            if show_progress and self.visual_mode:
-                self.visual_board.display_game_progress(
-                    self.board, 
-                    move_history, 
-                    post_eval
-                )
-                time.sleep(0.2)  # Show each position briefly
+            # Show progress if requested
+            if show_progress and move_num % 10 == 0:
+                print(f"Move {move_num}: {move_history[-1]} (eval: {post_eval:.2f})")
         
         # Get final game result
         final_result = self.get_game_result()
@@ -311,25 +287,15 @@ class NeuralChessEngine:
             'game_over': self.board.is_game_over()
         }
     
-    def train_on_self_play(self, num_games: int = 100, epochs_per_game: int = 5, visual_training: bool = True):
+    def train_on_self_play(self, num_games: int = 100, epochs_per_game: int = 5):
         """Train the neural network on self-play games"""
         print(f"Starting self-play training with {num_games} games...")
         
         for game_num in range(num_games):
             print(f"Playing game {game_num + 1}/{num_games}")
             
-            # Show training progress if visual mode
-            if visual_training and self.visual_mode:
-                self.visual_board.display_training_progress(
-                    game_num + 1, 
-                    num_games, 
-                    0.0,  # Will be updated after training
-                    len(self.training_positions)
-                )
-                time.sleep(1.0)
-            
             # Play a game
-            game_result = self.self_play_game(show_progress=visual_training)
+            game_result = self.self_play_game(show_progress=True)
             
             # Generate and save PGN for this game
             if game_result['move_history']:

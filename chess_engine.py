@@ -1,216 +1,128 @@
 #!/usr/bin/env python3
 """
-Chess Engine Project - Main Launcher
-Comprehensive chess engine with traditional and neural approaches
+Neural Chess Engine Launcher
+Main entry point for the neural chess engine
 """
 
 import os
 import sys
 
-def show_menu():
-    """Display the main menu"""
-    print("♟️ CHESS ENGINE PROJECT")
-    print("=" * 50)
-    print("Choose your chess engine experience:")
-    print()
-    print("🧮 TRADITIONAL ENGINE (Handcrafted Rules)")
-    print("  1. Interactive Play")
-    print("  2. UCI Protocol (for chess GUIs)")
-    print("  3. Engine Demo")
-    print("  4. Run Tests")
-    print()
-    print("🧠 NEURAL ENGINE (Self-Learning AI)")
-    print("  5. Basic Learning Demo")
-    print("  6. Full Training")
-    print("  7. Test Neural System")
-    print()
-    print("🎨 VISUAL TRAINING (Recommended!)")
-    print("  9. Quick Visual Demo (1 game)")
-    print("  10. Full Visual Training")
-    print("  11. Test Visual Board")
-    print()
-    print("📚 DOCUMENTATION")
-    print("  12. View Project Structure")
-    print("  13. Open Documentation")
-    print()
-    print("0. Exit")
-    print()
-
-def run_traditional_engine():
-    """Run traditional engine commands"""
-    print("\n🧮 TRADITIONAL ENGINE")
-    print("-" * 30)
-    print("1. Interactive Play")
-    print("2. UCI Protocol")
-    print("3. Engine Demo")
-    print("4. Back to Main Menu")
-    
-    choice = input("\nChoose option (1-4): ").strip()
-    
-    if choice == "1":
-        os.system("python run_traditional.py interactive")
-    elif choice == "2":
-        os.system("python run_traditional.py uci")
-    elif choice == "3":
-        os.system("python run_traditional.py demo")
-    elif choice == "4":
-        return
-    else:
-        print("Invalid choice. Returning to main menu.")
+def show_project_structure():
+    """Display the simplified project structure"""
+    print("\n📁 Project Structure:")
+    print("=" * 40)
+    print("chess-engine/")
+    print("├── 🧠 neural/                    # Neural chess engine")
+    print("│   ├── neural_chess_engine.py    # Core neural engine")
+    print("│   ├── train_neural_chess.py     # Training script")
+    print("│   ├── neural_demo.py            # Neural engine demo")
+    print("│   └── pgn_demo.py               # PGN generation demo")
+    print("├── 📁 models/                     # Trained neural models")
+    print("├── 📁 games/                      # PGN game files")
+    print("├── 📁 docs/                       # Documentation")
+    print("├── 🚀 run_neural.py              # Neural engine runner")
+    print("├── 🧪 test_gpu.py                # GPU acceleration test")
+    print("└── 📖 README.md                  # Project documentation")
 
 def run_neural_engine():
-    """Run neural engine commands"""
-    print("\n🧠 NEURAL ENGINE")
-    print("-" * 20)
-    print("1. Basic Learning Demo")
-    print("2. Full Training")
-    print("3. Test Neural System")
-    print("5. Back to Main Menu")
+    """Run the neural chess engine"""
+    print("\n🧠 Neural Chess Engine")
+    print("=" * 30)
+    print("Choose an option:")
+    print("1. 🚀 Neural Network Training")
+    print("2. 🧪 Test GPU Acceleration")
+    print("3. 📁 View Project Structure")
+    print("4. 📖 Open Documentation")
+    print("5. 🔙 Back to Main Menu")
     
-    choice = input("\nChoose option (1-5): ").strip()
+    choice = input("\nEnter your choice (1-5): ").strip()
     
     if choice == "1":
-        os.system("python run_neural.py demo")
-    elif choice == "2":
-        os.system("python run_neural.py train")
-    elif choice == "3":
-        print("\n🧠 Starting Neural Network Training...")
+        print("\n🚀 Starting Neural Network Training...")
         os.system("python run_neural.py")
-        print("Training cancelled.")
+    elif choice == "2":
+        print("\n🧪 Testing GPU Acceleration...")
+        os.system("python test_gpu.py")
+    elif choice == "3":
+        show_project_structure()
+        input("\nPress Enter to continue...")
+        run_neural_engine()
     elif choice == "4":
-        os.system("python run_neural.py test")
+        open_documentation()
     elif choice == "5":
         return
     else:
-        print("Invalid choice. Returning to main menu.")
-
-def run_visual_training():
-    """Run visual training commands"""
-    print("\n🎨 VISUAL TRAINING")
-    print("-" * 20)
-    print("1. Quick Visual Demo (1 game)")
-    print("2. Full Visual Training")
-    print("3. Test Visual Board")
-    print("4. Back to Main Menu")
-    
-    choice = input("\nChoose option (1-4): ").strip()
-    
-    if choice == "1":
-        os.system("python run_visual.py simple")
-    elif choice == "2":
-        os.system("python run_visual.py training")
-    elif choice == "3":
-        os.system("python run_visual.py board")
-    elif choice == "4":
-        return
-    else:
-        print("Invalid choice. Returning to main menu.")
-
-def show_project_structure():
-    """Display the project structure"""
-    print("\n📁 PROJECT STRUCTURE")
-    print("=" * 50)
-    print("chess-engine/")
-    print("├── 📁 traditional/          # Traditional chess engine")
-    print("│   ├── chess_engine.py      # Core engine")
-    print("│   ├── uci_handler.py       # UCI protocol")
-    print("│   ├── interactive.py       # Command interface")
-    print("│   └── demo.py              # Capabilities demo")
-    print()
-    print("├── 📁 neural/               # Neural network engine")
-    print("│   ├── neural_chess_engine.py # Neural engine")
-    print("│   ├── train_neural_chess.py  # Training script")
-    print("│   ├── neural_demo.py         # Learning demo")
-    print("│   └── pgn_demo.py            # PGN generation demo")
-    print()
-    print("├── 📁 visual/               # Visual components")
-    print("│   ├── visual_chess_board.py  # Clean chess board")
-    print("│   ├── visual_training.py     # Visual training menu")
-    print("│   ├── simple_visual_training.py # Quick demo")
-    print("│   └── quick_visual_demo.py   # Fast demo")
-    print()
-    print("├── 📁 docs/                  # Documentation")
-    print("│   ├── NEURAL_README.md       # Neural engine guide")
-    print("│   ├── PROJECT_SUMMARY.md     # Complete overview")
-    print("│   └── PROJECT_SUMMARY.md     # Complete overview")
-    print()
-    print("├── 📁 tests/                  # Test files")
-    print("│   └── test_engine.py          # Traditional tests")
-    print()
-    print("├── 📁 scripts/                # Utility scripts")
-    print("│   └── run_engine.bat          # Windows launcher")
-    print()
-    print("├── run_traditional.py         # Traditional launcher")
-    print("├── run_neural.py              # Neural launcher")
-    print("├── run_visual.py              # Visual launcher")
-    print("└── chess_engine.py            # This main launcher")
-    print()
-    input("Press Enter to continue...")
+        print("Invalid choice. Please try again.")
+        run_neural_engine()
 
 def open_documentation():
     """Open documentation files"""
-    print("\n📚 DOCUMENTATION")
-    print("-" * 20)
-    print("1. View NEURAL_README.md")
-    print("2. View PROJECT_SUMMARY.md")
-    print("3. View NEURAL_README.md")
-    print("4. Back to Main Menu")
+    print("\n📖 Documentation")
+    print("=" * 20)
+    print("Choose a document to view:")
+    print("1. 📖 README.md (Main documentation)")
+    print("2. 🚀 GPU_ACCELERATION_README.md (GPU setup)")
+    print("3. 🔄 RESTRUCTURE_SUMMARY.md (Project changes)")
+    print("4. 🔙 Back to Neural Engine Menu")
     
-    choice = input("\nChoose option (1-4): ").strip()
+    choice = input("\nEnter your choice (1-4): ").strip()
     
     if choice == "1":
-        os.system("start docs/NEURAL_README.md")
+        os.system("notepad README.md")
     elif choice == "2":
-        os.system("start docs/PROJECT_SUMMARY.md")
+        os.system("notepad GPU_ACCELERATION_README.md")
     elif choice == "3":
-            os.system("start docs/NEURAL_README.md")
+        os.system("notepad RESTRUCTURE_SUMMARY.md")
     elif choice == "4":
+        run_neural_engine()
         return
     else:
-        print("Invalid choice. Returning to main menu.")
+        print("Invalid choice. Please try again.")
+        open_documentation()
+    
+    open_documentation()
 
 def main():
-    """Main function"""
+    """Main launcher function"""
+    print("🧠 Neural Chess Engine")
+    print("=" * 40)
+    print("Welcome to the Neural Chess Engine!")
+    print("This engine learns to play chess through self-play using neural networks.")
+    print()
+    print("Features:")
+    print("• 🚀 GPU acceleration (CUDA support)")
+    print("• 🧠 Neural network training")
+    print("• 📊 Self-play learning")
+    print("• 💾 Model checkpointing")
+    print("• 📜 PGN game generation")
+    print()
+    
     while True:
-        show_menu()
-        choice = input("Enter your choice (0-13): ").strip()
+        print("\nMain Menu:")
+        print("1. 🚀 Launch Neural Engine")
+        print("2. 📁 View Project Structure")
+        print("3. 📖 Open Documentation")
+        print("4. 🧪 Test GPU Acceleration")
+        print("5. 🚪 Exit")
         
-        if choice == "0":
-            print("\n👋 Thanks for using the Chess Engine Project!")
-            print("Goodbye! ♟️")
-            break
-        elif choice == "1":
-            run_traditional_engine()
+        choice = input("\nEnter your choice (1-5): ").strip()
+        
+        if choice == "1":
+            run_neural_engine()
         elif choice == "2":
-            os.system("python run_traditional.py uci")
-        elif choice == "3":
-            os.system("python run_traditional.py demo")
-        elif choice == "4":
-            os.system("python run_traditional.py test")
-        elif choice == "5":
-            os.system("python run_neural.py demo")
-        elif choice == "6":
-            os.system("python run_neural.py train")
-        elif choice == "7":
-            print("\n🧠 Starting Neural Network Training...")
-            os.system("python run_neural.py")
-            print("Training cancelled.")
-        elif choice == "8":
-            os.system("python run_neural.py test")
-        elif choice == "9":
-            os.system("python run_visual.py simple")
-        elif choice == "10":
-            os.system("python run_visual.py training")
-        elif choice == "11":
-            os.system("python run_visual.py board")
-        elif choice == "12":
             show_project_structure()
-        elif choice == "13":
+            input("\nPress Enter to continue...")
+        elif choice == "3":
             open_documentation()
+        elif choice == "4":
+            print("\n🧪 Testing GPU Acceleration...")
+            os.system("python test_gpu.py")
+            input("\nPress Enter to continue...")
+        elif choice == "5":
+            print("\n👋 Goodbye! Thanks for using the Neural Chess Engine!")
+            break
         else:
             print("Invalid choice. Please try again.")
-        
-        input("\nPress Enter to continue...")
 
 if __name__ == "__main__":
     main()

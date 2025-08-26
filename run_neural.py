@@ -16,10 +16,9 @@ def main():
     print("Choose an option:")
     print("1. Neural Network Training")
     print("2. Interactive Play")
-    print("3. Visual Training Demo")
-    print("4. Exit")
+    print("3. Exit")
     
-    choice = input("\nEnter your choice (1-4): ").strip()
+    choice = input("\nEnter your choice (1-3): ").strip()
     
     if choice == "1":
         print("\n🚀 Starting Neural Network Training...")
@@ -63,11 +62,6 @@ def main():
         print("Game ended.")
         
     elif choice == "3":
-        print("\n🎨 Starting Visual Training Demo...")
-        from visual.visual_training import main as visual_main
-        visual_main()
-        
-    elif choice == "4":
         print("Goodbye!")
         return
         
