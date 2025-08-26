@@ -6,7 +6,7 @@ import torch.optim as optim
 from torch.utils.data import Dataset, DataLoader
 import random
 import time
-from typing import List, Tuple, Optional
+from typing import List, Tuple, Optional, Dict, Any
 import pickle
 import os
 
@@ -231,8 +231,8 @@ class NeuralChessEngine:
         
         return best_score, best_move
     
-    def self_play_game(self, max_moves: int = 100, show_progress: bool = True) -> List[Tuple[torch.Tensor, float]]:
-        """Play a game against itself and return training data"""
+    def self_play_game(self, max_moves: int = 100, show_progress: bool = True) -> Dict[str, Any]:
+        """Play a game against itself and return training data with game information"""
         self.board = chess.Board()
         game_data = []
         move_history = []
@@ -282,7 +282,18 @@ class NeuralChessEngine:
                 )
                 time.sleep(0.2)  # Show each position briefly
         
-        return game_data
+        # Get final game result
+        final_result = self.get_game_result()
+        final_evaluation = self.evaluate_position_neural(self.board)
+        
+        return {
+            'game_data': game_data,
+            'move_history': move_history,
+            'result': final_result,
+            'moves_played': len(move_history),
+            'final_evaluation': final_evaluation,
+            'game_over': self.board.is_game_over()
+        }
     
     def train_on_self_play(self, num_games: int = 100, epochs_per_game: int = 5, visual_training: bool = True):
         """Train the neural network on self-play games"""
@@ -302,7 +313,15 @@ class NeuralChessEngine:
                 time.sleep(1.0)
             
             # Play a game
-            game_data = self.self_play_game(show_progress=visual_training)
+            game_result = self.self_play_game(show_progress=visual_training)
+            
+            # Generate and save PGN for this game
+            if game_result['move_history']:
+                pgn_game = self.generate_pgn_game(
+                    game_result['move_history'], 
+                    game_result['result']
+                )
+                self.save_game_to_history(pgn_game, game_num + 1, game_result)
             
             # Train on this game's data
             if len(self.training_positions) > 0:
@@ -388,6 +407,88 @@ class NeuralChessEngine:
     def reset_board(self):
         """Reset board to starting position"""
         self.board = chess.Board()
+    
+    def generate_pgn_game(self, move_history: List[str], game_result: str = None) -> str:
+        """Generate PGN notation for a completed game"""
+        # Create a new game
+        game = chess.pgn.Game()
+        
+        # Set game metadata
+        game.headers["Event"] = "Neural Chess Self-Play"
+        game.headers["Site"] = "AI Training"
+        game.headers["Date"] = time.strftime("%Y.%m.%d")
+        game.headers["Round"] = "1"
+        game.headers["White"] = "Neural Engine"
+        game.headers["Black"] = "Neural Engine"
+        
+        # Set result if provided
+        if game_result:
+            game.headers["Result"] = game_result
+        
+        # Replay the moves to build the game
+        board = chess.Board()
+        node = game
+        
+        for move_uci in move_history:
+            try:
+                move = chess.Move.from_uci(move_uci)
+                if move in board.legal_moves:
+                    node = node.add_variation(move)
+                    board.push(move)
+                else:
+                    print(f"Warning: Illegal move {move_uci} in move history")
+                    break
+            except ValueError:
+                print(f"Warning: Invalid move format {move_uci}")
+                break
+        
+        # Set the final position
+        game.end().board = board
+        
+        return str(game)
+    
+    def save_game_to_history(self, pgn_game: str, game_number: int, game_stats: Dict[str, Any] = None):
+        """Save a completed game to the game histories file"""
+        history_file = "game_histories.pgn"
+        
+        # Create game header with metadata
+        header = f"\n[Event \"Neural Chess Training Game {game_number}\"]\n"
+        header += f"[Site \"AI Training Session\"]\n"
+        header += f"[Date \"{time.strftime('%Y.%m.%d')}\"]\n"
+        header += f"[Round \"{game_number}\"]\n"
+        header += f"[White \"Neural Engine\"]\n"
+        header += f"[Black \"Neural Engine\"]\n"
+        
+        if game_stats:
+            if 'result' in game_stats:
+                header += f"[Result \"{game_stats['result']}\"]\n"
+            if 'moves_played' in game_stats:
+                header += f"[Moves \"{game_stats['moves_played']}\"]\n"
+            if 'final_evaluation' in game_stats:
+                header += f"[Evaluation \"{game_stats['final_evaluation']:.3f}\"]\n"
+        
+        # Append to history file
+        with open(history_file, 'a', encoding='utf-8') as f:
+            f.write(header)
+            f.write(pgn_game)
+            f.write("\n\n")
+        
+        print(f"💾 Game {game_number} saved to {history_file}")
+    
+    def get_game_result(self) -> str:
+        """Get the result of the current game"""
+        if self.board.is_checkmate():
+            return "1-0" if not self.board.turn else "0-1"
+        elif self.board.is_stalemate():
+            return "1/2-1/2"
+        elif self.board.is_insufficient_material():
+            return "1/2-1/2"
+        elif self.board.is_fifty_moves():
+            return "1/2-1/2"
+        elif self.board.is_repetition():
+            return "1/2-1/2"
+        else:
+            return "*"  # Game not finished
 
 def main():
     """Main function to demonstrate neural chess engine"""

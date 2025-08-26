@@ -2,6 +2,7 @@
 """
 Neural Chess Engine Training Script
 Trains a neural network to play chess through self-play learning
+Now with PGN generation and parallel game execution
 """
 
 import torch
@@ -12,6 +13,9 @@ import matplotlib.pyplot as plt
 import numpy as np
 import time
 import os
+import multiprocessing as mp
+from concurrent.futures import ProcessPoolExecutor, as_completed
+import chess.pgn
 
 def plot_training_progress(losses, game_scores, save_path="training_progress.png"):
     """Plot training progress"""
@@ -35,6 +39,153 @@ def plot_training_progress(losses, game_scores, save_path="training_progress.png
     plt.savefig(save_path)
     plt.show()
 
+def play_single_game(game_params):
+    """Play a single game and return results - for parallel execution"""
+    game_num, max_moves, epochs_per_game, learning_rate, model_name = game_params
+    
+    # Create a new engine instance for this game
+    engine = NeuralChessEngine()
+    
+    # Adjust learning rate
+    for param_group in engine.optimizer.param_groups:
+        param_group['lr'] = learning_rate
+    
+    print(f"🎮 Game {game_num} starting...")
+    
+    # Play the game
+    game_result = engine.self_play_game(max_moves=max_moves, show_progress=False)
+    
+    # Generate PGN for this game
+    if game_result['move_history']:
+        pgn_game = engine.generate_pgn_game(
+            game_result['move_history'], 
+            game_result['result']
+        )
+        engine.save_game_to_history(pgn_game, game_num, game_result)
+    
+    # Train the model on this game's data
+    if len(engine.training_positions) > 0:
+        engine.train_model(epochs_per_game)
+    
+    # Get final game score
+    final_score = game_result['final_evaluation']
+    
+    # Save model for this game
+    model_path = f"{model_name}_game_{game_num}.pth"
+    torch.save(engine.model.state_dict(), model_path)
+    
+    print(f"✅ Game {game_num} completed - Score: {final_score:.3f}, Moves: {game_result['moves_played']}")
+    
+    return {
+        'game_num': game_num,
+        'final_score': final_score,
+        'moves_played': game_result['moves_played'],
+        'result': game_result['result'],
+        'model_path': model_path,
+        'loss': getattr(engine, 'last_loss', 0.0) if hasattr(engine, 'last_loss') else 0.0
+    }
+
+def train_neural_chess_engine_parallel(
+    num_games=100,
+    epochs_per_game=3,
+    learning_rate=0.001,
+    save_interval=10,
+    model_name="chess_neural_model",
+    num_parallel_games=3
+):
+    """Train the neural chess engine through parallel self-play"""
+    
+    print("🧠 Neural Chess Engine Training - PARALLEL MODE")
+    print("=" * 50)
+    print(f"Training for {num_games} games")
+    print(f"Parallel games: {num_parallel_games}")
+    print(f"Epochs per game: {epochs_per_game}")
+    print(f"Learning rate: {learning_rate}")
+    print("=" * 50)
+    
+    # Training tracking
+    all_losses = []
+    game_scores = []
+    game_results = []
+    
+    start_time = time.time()
+    
+    # Process games in batches of parallel games
+    for batch_start in range(0, num_games, num_parallel_games):
+        batch_end = min(batch_start + num_parallel_games, num_games)
+        batch_size = batch_end - batch_start
+        
+        print(f"\n🚀 Starting batch {batch_start//num_parallel_games + 1}: Games {batch_start + 1}-{batch_end}")
+        
+        # Prepare game parameters for this batch
+        game_params = [
+            (game_num + 1, 50, epochs_per_game, learning_rate, model_name)
+            for game_num in range(batch_start, batch_end)
+        ]
+        
+        # Execute games in parallel
+        with ProcessPoolExecutor(max_workers=num_parallel_games) as executor:
+            # Submit all games in the batch
+            future_to_game = {
+                executor.submit(play_single_game, params): params[0] 
+                for params in game_params
+            }
+            
+            # Collect results as they complete
+            for future in as_completed(future_to_game):
+                game_num = future_to_game[future]
+                try:
+                    result = future.result()
+                    game_results.append(result)
+                    game_scores.append(result['final_score'])
+                    
+                    if result['loss'] > 0:
+                        all_losses.append(result['loss'])
+                    
+                    print(f"✅ Game {game_num} completed successfully")
+                    
+                except Exception as e:
+                    print(f"❌ Game {game_num} failed: {e}")
+        
+        # Progress update
+        completed_games = len(game_results)
+        elapsed = time.time() - start_time
+        avg_time_per_game = elapsed / completed_games
+        remaining_games = num_games - completed_games
+        eta = remaining_games * avg_time_per_game
+        
+        print(f"⏱️  Progress: {completed_games}/{num_games} ({100 * completed_games / num_games:.1f}%)")
+        print(f"⏰ ETA: {eta/60:.1f} minutes")
+        
+        # Save models periodically
+        if completed_games % save_interval == 0:
+            print(f"💾 Saving models after {completed_games} games...")
+    
+    # Final save
+    final_model_path = f"{model_name}_final.pth"
+    if game_results:
+        # Use the last completed game's model as the final model
+        last_game_result = game_results[-1]
+        import shutil
+        shutil.copy(last_game_result['model_path'], final_model_path)
+        print(f"💾 Final model saved: {final_model_path}")
+    
+    # Training summary
+    total_time = time.time() - start_time
+    print(f"\n🎉 Training completed!")
+    print(f"⏱️  Total time: {total_time/60:.1f} minutes")
+    print(f"🎮 Games played: {len(game_results)}")
+    print(f"🧠 Model saved: {final_model_path}")
+    
+    # Plot progress if we have data
+    if all_losses and game_scores:
+        try:
+            plot_training_progress(all_losses, game_scores)
+        except Exception as e:
+            print(f"Could not plot progress: {e}")
+    
+    return game_results
+
 def train_neural_chess_engine(
     num_games=100,
     epochs_per_game=3,
@@ -42,9 +193,9 @@ def train_neural_chess_engine(
     save_interval=10,
     model_name="chess_neural_model"
 ):
-    """Train the neural chess engine through self-play"""
+    """Train the neural chess engine through self-play (legacy single-threaded version)"""
     
-    print("🧠 Neural Chess Engine Training")
+    print("🧠 Neural Chess Engine Training - SINGLE THREADED")
     print("=" * 40)
     print(f"Training for {num_games} games")
     print(f"Epochs per game: {epochs_per_game}")
@@ -69,16 +220,24 @@ def train_neural_chess_engine(
         print(f"\n🎮 Game {game_num + 1}/{num_games}")
         
         # Play a game and collect training data
-        game_data = engine.self_play_game(max_moves=50)
+        game_result = engine.self_play_game(max_moves=50)
         
-        if len(game_data) > 0:
+        if game_result['game_data']:
             # Get final game score
-            final_position = game_data[-1][0]
-            final_score = game_data[-1][1]
+            final_score = game_result['final_evaluation']
             game_scores.append(final_score)
             
-            print(f"Game length: {len(game_data)} moves")
+            print(f"Game length: {game_result['moves_played']} moves")
             print(f"Final score: {final_score:.2f}")
+            print(f"Game result: {game_result['result']}")
+            
+            # Generate and save PGN for this game
+            if game_result['move_history']:
+                pgn_game = engine.generate_pgn_game(
+                    game_result['move_history'], 
+                    game_result['result']
+                )
+                engine.save_game_to_history(pgn_game, game_num + 1, game_result)
             
             # Train the model
             print("Training model...")
@@ -189,25 +348,50 @@ def main():
     print("=" * 50)
     
     # Training parameters
-    NUM_GAMES = 50  # Start with fewer games for testing
+    NUM_GAMES = 30  # Start with fewer games for testing
     EPOCHS_PER_GAME = 3
     LEARNING_RATE = 0.001
+    NUM_PARALLEL_GAMES = 3  # Run 3 games simultaneously
     
-    # Train the engine
-    print("🚀 Starting training...")
-    trained_engine = train_neural_chess_engine(
-        num_games=NUM_GAMES,
-        epochs_per_game=EPOCHS_PER_GAME,
-        learning_rate=LEARNING_RATE,
-        save_interval=10,
-        model_name="chess_neural"
-    )
+    # Choose training mode
+    print("Choose training mode:")
+    print("1. Parallel training (3 games simultaneously) - RECOMMENDED")
+    print("2. Single-threaded training (1 game at a time)")
     
-    # Test the trained model
-    print("\n🧪 Testing trained model...")
-    test_trained_model("chess_neural_final.pth", num_test_games=5)
+    choice = input("Enter choice (1 or 2): ").strip()
+    
+    if choice == "1":
+        print("\n🚀 Starting PARALLEL training...")
+        print(f"Running {NUM_PARALLEL_GAMES} games simultaneously")
+        game_results = train_neural_chess_engine_parallel(
+            num_games=NUM_GAMES,
+            epochs_per_game=EPOCHS_PER_GAME,
+            learning_rate=LEARNING_RATE,
+            save_interval=10,
+            model_name="chess_neural",
+            num_parallel_games=NUM_PARALLEL_GAMES
+        )
+        
+        # Test the trained model
+        print("\n🧪 Testing trained model...")
+        test_trained_model("chess_neural_final.pth", num_test_games=5)
+        
+    else:
+        print("\n🚀 Starting SINGLE-THREADED training...")
+        trained_engine = train_neural_chess_engine(
+            num_games=NUM_GAMES,
+            epochs_per_game=EPOCHS_PER_GAME,
+            learning_rate=LEARNING_RATE,
+            save_interval=10,
+            model_name="chess_neural"
+        )
+        
+        # Test the trained model
+        print("\n🧪 Testing trained model...")
+        test_trained_model("chess_neural_final.pth", num_test_games=5)
     
     print("\n🎉 All done! The neural chess engine has learned to play chess!")
+    print("📜 All games have been saved to 'game_histories.pgn'")
 
 if __name__ == "__main__":
     main()

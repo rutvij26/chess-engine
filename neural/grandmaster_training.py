@@ -249,6 +249,23 @@ class GrandmasterTrainer:
                 
                 self.games_played += 1
                 
+                # Generate and save PGN for this game
+                if game_result['move_history']:
+                    pgn_game = self.generate_pgn_game(
+                        game_result['move_history'],
+                        game_result['result']['type'],
+                        stage['description']
+                    )
+                    
+                    game_stats = {
+                        'result': game_result['result']['type'],
+                        'moves_played': game_result['length'],
+                        'final_evaluation': game_result['result']['score'],
+                        'elo_estimate': self.elo_estimate
+                    }
+                    
+                    self.save_game_to_history(pgn_game, current_game, stage['description'], game_stats)
+                
                 # Add to training data
                 for data_point in game_result['game_data']:
                     self.engine.training_positions.append(data_point['position'])
@@ -285,6 +302,81 @@ class GrandmasterTrainer:
         print(f"Total Games: {self.games_played}")
         print(f"Final ELO Estimate: {self.elo_estimate:.0f}")
         print(f"Training Time: {(time.time() - self.start_time)/3600:.1f} hours")
+    
+    def generate_pgn_game(self, move_history: list, game_result: str = None, stage_info: str = None) -> str:
+        """Generate PGN notation for a completed grandmaster training game"""
+        # Create a new game
+        game = chess.pgn.Game()
+        
+        # Set game metadata
+        game.headers["Event"] = "Grandmaster+ Chess Training"
+        game.headers["Site"] = "AI Training Session"
+        game.headers["Date"] = datetime.now().strftime("%Y.%m.%d")
+        game.headers["Round"] = f"{self.games_played}"
+        game.headers["White"] = "Grandmaster AI"
+        game.headers["Black"] = "Grandmaster AI"
+        
+        if stage_info:
+            game.headers["Stage"] = stage_info
+        
+        # Set result if provided
+        if game_result:
+            game.headers["Result"] = game_result
+        
+        # Replay the moves to build the game
+        board = chess.Board()
+        node = game
+        
+        for move_uci in move_history:
+            try:
+                move = chess.Move.from_uci(move_uci)
+                if move in board.legal_moves:
+                    node = node.add_variation(move)
+                    board.push(move)
+                else:
+                    print(f"Warning: Illegal move {move_uci} in move history")
+                    break
+            except ValueError:
+                print(f"Warning: Invalid move format {move_uci}")
+                break
+        
+        # Set the final position
+        game.end().board = board
+        
+        return str(game)
+    
+    def save_game_to_history(self, pgn_game: str, game_number: int, stage_info: str = None, game_stats: dict = None):
+        """Save a completed grandmaster game to the game histories file"""
+        history_file = "grandmaster_game_histories.pgn"
+        
+        # Create game header with metadata
+        header = f"\n[Event \"Grandmaster Training Game {game_number}\"]\n"
+        header += f"[Site \"AI Training Session\"]\n"
+        header += f"[Date \"{datetime.now().strftime('%Y.%m.%d')}\"]\n"
+        header += f"[Round \"{game_number}\"]\n"
+        header += f"[White \"Grandmaster AI\"]\n"
+        header += f"[Black \"Grandmaster AI\"]\n"
+        
+        if stage_info:
+            header += f"[Stage \"{stage_info}\"]\n"
+        
+        if game_stats:
+            if 'result' in game_stats:
+                header += f"[Result \"{game_stats['result']}\"]\n"
+            if 'moves_played' in game_stats:
+                header += f"[Moves \"{game_stats['moves_played']}\"]\n"
+            if 'final_evaluation' in game_stats:
+                header += f"[Evaluation \"{game_stats['final_evaluation']:.3f}\"]\n"
+            if 'elo_estimate' in game_stats:
+                header += f"[ELO \"{game_stats['elo_estimate']:.0f}\"]\n"
+        
+        # Append to history file
+        with open(history_file, 'a', encoding='utf-8') as f:
+            f.write(header)
+            f.write(pgn_game)
+            f.write("\n\n")
+        
+        print(f"💾 Grandmaster Game {game_number} saved to {history_file}")
     
     def _save_grandmaster_model(self, game_number: int, stage_name: str = "") -> None:
         """Save the model with grandmaster naming convention"""
