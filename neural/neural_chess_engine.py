@@ -252,6 +252,10 @@ class NeuralChessEngine:
                 turn_color = "White" if self.board.turn else "Black"
                 print(f"      📍 Move {move_num}: {turn_color}'s turn - Eval: {pre_eval:.2f}")
             
+            # Show move counter every 3 moves for better feedback
+            if show_progress and move_num % 3 == 0:
+                print(f"      🔄 Processing move {move_num}...")
+            
             # Make a move (either best move or random for exploration)
             if random.random() < 0.8:  # 80% best move, 20% random
                 if show_progress and move_num % 5 == 0:
@@ -261,6 +265,10 @@ class NeuralChessEngine:
                     move = chess.Move.from_uci(best_move)
                     move_history.append(move.uci())
                     self.board.push(move)
+                    
+                    # Show move immediately for better feedback
+                    if show_progress:
+                        print(f"      ♟️  Move {move_num}: {move.uci()}")
             else:
                 if show_progress and move_num % 5 == 0:
                     print(f"      🎲 Exploring... (random move)")
@@ -269,6 +277,10 @@ class NeuralChessEngine:
                     move = random.choice(legal_moves)
                     move_history.append(move.uci())
                     self.board.push(move)
+                    
+                    # Show move immediately for better feedback
+                    if show_progress:
+                        print(f"      🎲 Move {move_num}: {move.uci()} (random)")
             
             # Get evaluation after move
             post_eval = self.evaluate_position_neural(self.board)
@@ -293,6 +305,9 @@ class NeuralChessEngine:
                 elif self.board.is_checkmate():
                     print(f"      🎯 CHECKMATE!")
                     break
+                
+                # Show move count progress
+                print(f"      📈 Progress: {move_num} moves played")
         
         # Get final game result
         final_result = self.get_game_result()

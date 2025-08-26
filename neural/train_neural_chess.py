@@ -18,6 +18,20 @@ from concurrent.futures import ProcessPoolExecutor, as_completed
 import chess.pgn
 import threading
 import datetime
+import signal
+import sys
+
+def cleanup_on_exit():
+    """Cleanup function to be called on exit"""
+    print("\n🛑 Interrupt received. Cleaning up...")
+    try:
+        if torch.cuda.is_available():
+            torch.cuda.empty_cache()
+            print("✅ CUDA memory cleared")
+    except Exception as e:
+        print(f"⚠️  CUDA cleanup warning: {e}")
+    print("🔄 Exiting...")
+    sys.exit(0)
 
 def plot_training_progress(losses, game_scores, save_path="training_progress.png"):
     """Plot training progress"""
@@ -100,10 +114,15 @@ def display_training_status(game_results, game_scores, start_time, num_games):
 
 def play_single_game(game_params):
     """Play a single game and return results - for parallel execution"""
-    game_num, epochs_per_game, learning_rate, model_name = game_params
+    game_num, epochs_per_game, learning_rate, model_name, existing_model_path = game_params
     
-    # Create a new engine instance for this game
-    engine = NeuralChessEngine()
+    # Create engine instance - load existing model if available
+    if existing_model_path and os.path.exists(existing_model_path):
+        print(f"      📚 Loading existing model: {existing_model_path}")
+        engine = NeuralChessEngine(existing_model_path)
+    else:
+        print(f"      🆕 Creating fresh neural network")
+        engine = NeuralChessEngine()
     
     # Adjust learning rate
     for param_group in engine.optimizer.param_groups:
@@ -111,8 +130,8 @@ def play_single_game(game_params):
     
     print(f"🎮 Game {game_num} starting...")
     
-    # Play the game
-    game_result = engine.self_play_game(show_progress=False)
+    # Play the game with progress enabled
+    game_result = engine.self_play_game(show_progress=True)
     
     # Generate PGN for this game
     if game_result['move_history']:
@@ -122,9 +141,9 @@ def play_single_game(game_params):
         )
         engine.save_game_to_history(pgn_game, game_num, game_result)
     
-    # Train the model on this game's data
+    # Train the model on this game's data with progress
     if len(engine.training_positions) > 0:
-        engine.train_model(epochs_per_game)
+        engine.train_model_with_progress(epochs_per_game)
     
     # Get final game score
     final_score = game_result['final_evaluation']
@@ -151,7 +170,8 @@ def train_neural_chess_engine_parallel(
     learning_rate=0.001,
     save_interval=10,
     model_name="chess_neural_model",
-    num_parallel_games=3
+    num_parallel_games=3,
+    existing_model_path=None
 ):
     """Train the neural chess engine through parallel self-play"""
     
@@ -182,117 +202,153 @@ def train_neural_chess_engine_parallel(
     )
     status_thread.start()
     
-    # Process games in batches of parallel games
-    for batch_start in range(0, num_games, actual_parallel_games):
-        batch_end = min(batch_start + actual_parallel_games, num_games)
-        batch_size = batch_end - batch_start
-        
-        print(f"\n🚀 Starting batch {batch_start//actual_parallel_games + 1}: Games {batch_start + 1}-{batch_end}")
-        
-        # Prepare game parameters for this batch
-        game_params = [
-            (game_num + 1, epochs_per_game, learning_rate, model_name)
-            for game_num in range(batch_start, batch_end)
-        ]
-        
-        # Execute games in parallel
-        print(f"      🚀 Submitting {len(game_params)} games to parallel executor...")
-        
-        with ProcessPoolExecutor(max_workers=actual_parallel_games) as executor:
-            # Submit all games in the batch
-            future_to_game = {
-                executor.submit(play_single_game, params): params[0] 
-                for params in game_params
-            }
+    try:
+        # Process games in batches of parallel games
+        for batch_start in range(0, num_games, actual_parallel_games):
+            batch_end = min(batch_start + actual_parallel_games, num_games)
+            batch_size = batch_end - batch_start
             
-            print(f"      ⏳ Waiting for games to complete...")
-            completed_in_batch = 0
+            print(f"\n🚀 Starting batch {batch_start//actual_parallel_games + 1}: Games {batch_start + 1}-{batch_end}")
             
-            # Collect results as they complete with timeout
-            for future in as_completed(future_to_game):
-                game_num = future_to_game[future]
-                try:
-                    # Add timeout to prevent hanging
-                    result = future.result(timeout=300)  # 5 minutes timeout per game
-                    game_results.append(result)
-                    game_scores.append(result['final_score'])
-                    
-                    if result['loss'] > 0:
-                        all_losses.append(result['loss'])
-                    
-                    completed_in_batch += 1
-                    print(f"      ✅ Game {game_num} completed ({completed_in_batch}/{len(game_params)})")
-                    
-                    # Show batch progress
-                    if completed_in_batch < len(game_params):
-                        remaining = len(game_params) - completed_in_batch
-                        print(f"      ⏳ Waiting for {remaining} more game(s)...")
-                    
-                except Exception as e:
-                    print(f"      ❌ Game {game_num} failed: {e}")
-                    # Cancel the future to free up resources
-                    future.cancel()
+            # Prepare game parameters for this batch
+            game_params = [
+                (game_num + 1, epochs_per_game, learning_rate, model_name, existing_model_path)
+                for game_num in range(batch_start, batch_end)
+            ]
+            
+            # Execute games in parallel
+            print(f"      🚀 Submitting {len(game_params)} games to parallel executor...")
+            
+            with ProcessPoolExecutor(max_workers=actual_parallel_games) as executor:
+                # Submit all games in the batch
+                future_to_game = {
+                    executor.submit(play_single_game, params): params[0] 
+                    for params in game_params
+                }
+                
+                print(f"      ⏳ Waiting for games to complete...")
+                completed_in_batch = 0
+                
+                # Collect results as they complete with timeout
+                for future in as_completed(future_to_game):
+                    game_num = future_to_game[future]
+                    try:
+                        # Add timeout to prevent hanging
+                        result = future.result(timeout=300)  # 5 minutes timeout per game
+                        game_results.append(result)
+                        game_scores.append(result['final_score'])
+                        
+                        if result['loss'] > 0:
+                            all_losses.append(result['loss'])
+                        
+                        completed_in_batch += 1
+                        print(f"      ✅ Game {game_num} completed ({completed_in_batch}/{len(game_params)})")
+                        
+                        # Show batch progress
+                        if completed_in_batch < len(game_params):
+                            remaining = len(game_params) - completed_in_batch
+                            print(f"      ⏳ Waiting for {remaining} more game(s)...")
+                        
+                    except Exception as e:
+                        print(f"      ❌ Game {game_num} failed: {e}")
+                        # Cancel the future to free up resources
+                        future.cancel()
+            
+            # Progress update with detailed statistics
+            completed_games = len(game_results)
+            elapsed = time.time() - start_time
+            avg_time_per_game = elapsed / completed_games
+            remaining_games = num_games - completed_games
+            eta = remaining_games * avg_time_per_game
+            
+            # Create a visual progress bar
+            progress_bar_length = 30
+            filled_length = int(progress_bar_length * completed_games / num_games)
+            progress_bar = "█" * filled_length + "░" * (progress_bar_length - filled_length)
+            
+            print(f"\n📊 BATCH PROGRESS SUMMARY:")
+            print(f"   {progress_bar} {completed_games}/{num_games} ({100 * completed_games / num_games:.1f}%)")
+            print(f"   ⏱️  Elapsed: {elapsed/60:.1f} minutes")
+            print(f"   ⏰ Avg time per game: {avg_time_per_game/60:.1f} minutes")
+            print(f"   🎯 ETA: {eta/60:.1f} minutes")
+            
+            # Show performance metrics
+            if game_scores:
+                avg_score = sum(game_scores) / len(game_scores)
+                best_score = max(game_scores)
+                print(f"   📈 Avg score: {avg_score:.2f}")
+                print(f"   🏆 Best score: {best_score:.2f}")
+            
+            # Save models periodically
+            if completed_games % save_interval == 0:
+                print(f"   💾 Saving models after {completed_games} games...")
         
-        # Progress update with detailed statistics
-        completed_games = len(game_results)
-        elapsed = time.time() - start_time
-        avg_time_per_game = elapsed / completed_games
-        remaining_games = num_games - completed_games
-        eta = remaining_games * avg_time_per_game
+        # Final save
+        os.makedirs("models", exist_ok=True)
+        final_model_path = f"models/{model_name}_final.pth"
+        if game_results:
+            # Use the last completed game's model as the final model
+            last_game_result = game_results[-1]
+            import shutil
+            shutil.copy(last_game_result['model_path'], final_model_path)
+            print(f"💾 Final model saved: {final_model_path}")
         
-        # Create a visual progress bar
-        progress_bar_length = 30
-        filled_length = int(progress_bar_length * completed_games / num_games)
-        progress_bar = "█" * filled_length + "░" * (progress_bar_length - filled_length)
+        # Training summary
+        total_time = time.time() - start_time
+        print(f"\n🎉 Training completed!")
+        print(f"⏱️  Total time: {total_time/60:.1f} minutes")
+        print(f"🎮 Games played: {len(game_results)}")
+        print(f"🧠 Model saved: {final_model_path}")
         
-        print(f"\n📊 BATCH PROGRESS SUMMARY:")
-        print(f"   {progress_bar} {completed_games}/{num_games} ({100 * completed_games / num_games:.1f}%)")
-        print(f"   ⏱️  Elapsed: {elapsed/60:.1f} minutes")
-        print(f"   ⏰ Avg time per game: {avg_time_per_game/60:.1f} minutes")
-        print(f"   🎯 ETA: {eta/60:.1f} minutes")
+        # Plot progress if we have data
+        if all_losses and game_scores:
+            try:
+                plot_training_progress(all_losses, game_scores)
+            except Exception as e:
+                print(f"Could not plot progress: {e}")
         
-        # Show performance metrics
-        if game_scores:
-            avg_score = sum(game_scores) / len(game_scores)
-            best_score = max(game_scores)
-            print(f"   📈 Avg score: {avg_score:.2f}")
-            print(f"   🏆 Best score: {best_score:.2f}")
+        return game_results
         
-        # Save models periodically
-        if completed_games % save_interval == 0:
-            print(f"   💾 Saving models after {completed_games} games...")
+    except Exception as e:
+        print(f"\n💥 Training failed with error: {e}")
+        import traceback
+        traceback.print_exc()
+        return []
     
-    # Final save
-    os.makedirs("models", exist_ok=True)
-    final_model_path = f"models/{model_name}_final.pth"
-    if game_results:
-        # Use the last completed game's model as the final model
-        last_game_result = game_results[-1]
-        import shutil
-        shutil.copy(last_game_result['model_path'], final_model_path)
-        print(f"💾 Final model saved: {final_model_path}")
-    
-    # Training summary
-    total_time = time.time() - start_time
-    print(f"\n🎉 Training completed!")
-    print(f"⏱️  Total time: {total_time/60:.1f} minutes")
-    print(f"🎮 Games played: {len(game_results)}")
-    print(f"🧠 Model saved: {final_model_path}")
-    
-    # Plot progress if we have data
-    if all_losses and game_scores:
+    finally:
+        # Cleanup CUDA memory
         try:
-            plot_training_progress(all_losses, game_scores)
+            if torch.cuda.is_available():
+                torch.cuda.empty_cache()
+                print("🧹 CUDA memory cleared")
         except Exception as e:
-            print(f"Could not plot progress: {e}")
-    
-    return game_results
+            print(f"⚠️  CUDA cleanup warning: {e}")
+        
+        # Stop status thread gracefully
+        print("🔄 Stopping status updates...")
+        try:
+            # Set a flag to stop the status thread
+            if 'status_thread' in locals() and status_thread.is_alive():
+                status_thread.join(timeout=3)  # Wait up to 3 seconds
+                if status_thread.is_alive():
+                    print("⚠️  Status thread did not stop gracefully")
+                else:
+                    print("✅ Status thread stopped gracefully")
+        except Exception as e:
+            print(f"⚠️  Status thread cleanup warning: {e}")
+        
+        print("🧹 Cleanup completed")
 
 def status_updater(game_results, game_scores, start_time, num_games):
     """Update status display every few seconds"""
-    while len(game_results) < num_games:
-        time.sleep(5)  # Update every 5 seconds
-        display_training_status(game_results, game_scores, start_time, num_games)
+    try:
+        while len(game_results) < num_games:
+            time.sleep(5)  # Update every 5 seconds
+            display_training_status(game_results, game_scores, start_time, num_games)
+    except Exception as e:
+        print(f"⚠️  Status updater error: {e}")
+    finally:
+        print("🔄 Status updates stopped")
 
 def train_neural_chess_engine(
     num_games=100,
@@ -476,6 +532,10 @@ def test_trained_model(model_path, num_test_games=10):
 
 def main():
     """Main training and testing function"""
+    # Set up signal handlers for graceful cleanup
+    signal.signal(signal.SIGINT, lambda sig, frame: cleanup_on_exit())
+    signal.signal(signal.SIGTERM, lambda sig, frame: cleanup_on_exit())
+    
     print("🧠 Neural Chess Engine - Training and Testing")
     print("=" * 50)
     print("Choose an option:")
@@ -511,6 +571,49 @@ def run_training():
     LEARNING_RATE = 0.001
     NUM_PARALLEL_GAMES = 3  # Run 3 games simultaneously
     
+    # Check for existing models and determine version
+    models_dir = "models"
+    os.makedirs(models_dir, exist_ok=True)
+    
+    # Find the latest version
+    existing_models = [f for f in os.listdir(models_dir) if f.startswith("chess_neural_v") and f.endswith("_final.pth")]
+    existing_model_path = None
+    
+    if existing_models:
+        # Extract version numbers and find the latest
+        versions = []
+        for model in existing_models:
+            try:
+                version = int(model.split("_v")[1].split("_")[0])
+                versions.append(version)
+            except:
+                continue
+        
+        if versions:
+            latest_version = max(versions)
+            next_version = latest_version + 1
+            existing_model_path = f"{models_dir}/chess_neural_v{latest_version}_final.pth"
+            print(f"📚 Found existing model: Version {latest_version}")
+            print(f"📁 Model path: {existing_model_path}")
+            print(f"🔄 Will continue training to create: Version {next_version}")
+            
+            # Ask user if they want to continue from existing model
+            continue_choice = input("Continue training from existing model? (y/n, default: y): ").strip().lower()
+            if continue_choice in ['', 'y', 'yes']:
+                base_model_name = f"chess_neural_v{next_version}"
+                print(f"🚀 Continuing training to create {base_model_name}")
+                print(f"📚 Will load existing model: {existing_model_path}")
+            else:
+                base_model_name = "chess_neural_v1"
+                existing_model_path = None
+                print(f"🆕 Starting fresh training with {base_model_name}")
+        else:
+            base_model_name = "chess_neural_v1"
+            print(f"🆕 Starting fresh training with {base_model_name}")
+    else:
+        base_model_name = "chess_neural_v1"
+        print(f"🆕 Starting fresh training with {base_model_name}")
+    
     # Get number of games from user
     try:
         num_games = int(input(f"Enter number of games to train (default: {NUM_GAMES}): ").strip() or NUM_GAMES)
@@ -520,19 +623,40 @@ def run_training():
     
     print(f"\n🚀 Starting unified training for {num_games} games...")
     print(f"Running {NUM_PARALLEL_GAMES} games simultaneously")
+    print(f"📚 Model version: {base_model_name}")
     
-    game_results = train_neural_chess_engine_parallel(
-        num_games=num_games,
-        epochs_per_game=EPOCHS_PER_GAME,
-        learning_rate=LEARNING_RATE,
-        save_interval=10,
-        model_name="chess_neural",
-        num_parallel_games=NUM_PARALLEL_GAMES
-    )
+    try:
+        game_results = train_neural_chess_engine_parallel(
+            num_games=num_games,
+            epochs_per_game=EPOCHS_PER_GAME,
+            learning_rate=LEARNING_RATE,
+            save_interval=10,
+            model_name=base_model_name,
+            num_parallel_games=NUM_PARALLEL_GAMES,
+            existing_model_path=existing_model_path
+        )
+        
+        print("\n🎉 Training completed!")
+        print("📜 All games have been saved to 'games/game_histories.pgn'")
+        print(f"🧠 New model version saved: {base_model_name}_final.pth")
+        
+    except Exception as e:
+        print(f"\n💥 Training failed: {e}")
+        import traceback
+        traceback.print_exc()
     
-    print("\n🎉 Training completed!")
-    print("📜 All games have been saved to 'games/game_histories.pgn'")
-    print("🧠 All models have been saved to 'models/' directory")
+    finally:
+        # Final cleanup
+        print("\n🧹 Final cleanup...")
+        try:
+            if torch.cuda.is_available():
+                torch.cuda.empty_cache()
+                print("✅ CUDA memory cleared")
+        except Exception as e:
+            print(f"⚠️  CUDA cleanup warning: {e}")
+        
+        print("🔄 Returning to main menu...")
+        time.sleep(2)  # Give user time to see cleanup messages
 
 def run_testing():
     """Run the testing process"""
