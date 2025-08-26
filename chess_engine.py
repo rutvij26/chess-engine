@@ -22,8 +22,7 @@ def show_menu():
     print("🧠 NEURAL ENGINE (Self-Learning AI)")
     print("  5. Basic Learning Demo")
     print("  6. Full Training")
-    print("  7. 🏆 Grandmaster+ Training (2-6 months)")
-    print("  8. Test Grandmaster System")
+    print("  7. Test Neural System")
     print()
     print("🎨 VISUAL TRAINING (Recommended!)")
     print("  9. Quick Visual Demo (1 game)")
@@ -65,8 +64,7 @@ def run_neural_engine():
     print("-" * 20)
     print("1. Basic Learning Demo")
     print("2. Full Training")
-    print("3. 🏆 Grandmaster+ Training")
-    print("4. Test Grandmaster System")
+    print("3. Test Neural System")
     print("5. Back to Main Menu")
     
     choice = input("\nChoose option (1-5): ").strip()
@@ -76,12 +74,9 @@ def run_neural_engine():
     elif choice == "2":
         os.system("python run_neural.py train")
     elif choice == "3":
-        print("\n🚨 WARNING: Grandmaster training requires 2-6 months!")
-        confirm = input("Are you sure? (type 'YES' to continue): ")
-        if confirm == "YES":
-            os.system("python run_neural.py grandmaster")
-        else:
-            print("Training cancelled.")
+        print("\n🧠 Starting Neural Network Training...")
+        os.system("python run_neural.py")
+        print("Training cancelled.")
     elif choice == "4":
         os.system("python run_neural.py test")
     elif choice == "5":
@@ -126,7 +121,7 @@ def show_project_structure():
     print("│   ├── neural_chess_engine.py # Neural engine")
     print("│   ├── train_neural_chess.py  # Training script")
     print("│   ├── neural_demo.py         # Learning demo")
-    print("│   └── grandmaster_training.py # 🏆 Grandmaster+ training")
+    print("│   └── pgn_demo.py            # PGN generation demo")
     print()
     print("├── 📁 visual/               # Visual components")
     print("│   ├── visual_chess_board.py  # Clean chess board")
@@ -137,11 +132,10 @@ def show_project_structure():
     print("├── 📁 docs/                  # Documentation")
     print("│   ├── NEURAL_README.md       # Neural engine guide")
     print("│   ├── PROJECT_SUMMARY.md     # Complete overview")
-    print("│   └── GRANDMASTER_ROADMAP.md # 🏆 Training roadmap")
+    print("│   └── PROJECT_SUMMARY.md     # Complete overview")
     print()
     print("├── 📁 tests/                  # Test files")
-    print("│   ├── test_engine.py          # Traditional tests")
-    print("│   └── test_grandmaster.py    # Grandmaster tests")
+    print("│   └── test_engine.py          # Traditional tests")
     print()
     print("├── 📁 scripts/                # Utility scripts")
     print("│   └── run_engine.bat          # Windows launcher")
@@ -159,7 +153,7 @@ def open_documentation():
     print("-" * 20)
     print("1. View NEURAL_README.md")
     print("2. View PROJECT_SUMMARY.md")
-    print("3. View GRANDMASTER_ROADMAP.md")
+    print("3. View NEURAL_README.md")
     print("4. Back to Main Menu")
     
     choice = input("\nChoose option (1-4): ").strip()
@@ -169,7 +163,7 @@ def open_documentation():
     elif choice == "2":
         os.system("start docs/PROJECT_SUMMARY.md")
     elif choice == "3":
-        os.system("start docs/GRANDMASTER_ROADMAP.md")
+            os.system("start docs/NEURAL_README.md")
     elif choice == "4":
         return
     else:
@@ -198,12 +192,9 @@ def main():
         elif choice == "6":
             os.system("python run_neural.py train")
         elif choice == "7":
-            print("\n🚨 WARNING: Grandmaster training requires 2-6 months!")
-            confirm = input("Are you sure? (type 'YES' to continue): ")
-            if confirm == "YES":
-                os.system("python run_neural.py grandmaster")
-            else:
-                print("Training cancelled.")
+            print("\n🧠 Starting Neural Network Training...")
+            os.system("python run_neural.py")
+            print("Training cancelled.")
         elif choice == "8":
             os.system("python run_neural.py test")
         elif choice == "9":

@@ -8,7 +8,7 @@ Now with PGN generation and parallel game execution
 import torch
 import torch.nn as nn
 import torch.optim as optim
-from neural_chess_engine import NeuralChessEngine
+from .neural_chess_engine import NeuralChessEngine
 import matplotlib.pyplot as plt
 import numpy as np
 import time
@@ -41,7 +41,7 @@ def plot_training_progress(losses, game_scores, save_path="training_progress.png
 
 def play_single_game(game_params):
     """Play a single game and return results - for parallel execution"""
-    game_num, max_moves, epochs_per_game, learning_rate, model_name = game_params
+    game_num, epochs_per_game, learning_rate, model_name = game_params
     
     # Create a new engine instance for this game
     engine = NeuralChessEngine()
@@ -53,7 +53,7 @@ def play_single_game(game_params):
     print(f"🎮 Game {game_num} starting...")
     
     # Play the game
-    game_result = engine.self_play_game(max_moves=max_moves, show_progress=False)
+    game_result = engine.self_play_game(show_progress=False)
     
     # Generate PGN for this game
     if game_result['move_history']:
@@ -71,7 +71,8 @@ def play_single_game(game_params):
     final_score = game_result['final_evaluation']
     
     # Save model for this game
-    model_path = f"{model_name}_game_{game_num}.pth"
+    os.makedirs("models", exist_ok=True)
+    model_path = f"models/{model_name}_game_{game_num}.pth"
     torch.save(engine.model.state_dict(), model_path)
     
     print(f"✅ Game {game_num} completed - Score: {final_score:.3f}, Moves: {game_result['moves_played']}")
@@ -119,7 +120,7 @@ def train_neural_chess_engine_parallel(
         
         # Prepare game parameters for this batch
         game_params = [
-            (game_num + 1, 50, epochs_per_game, learning_rate, model_name)
+            (game_num + 1, epochs_per_game, learning_rate, model_name)
             for game_num in range(batch_start, batch_end)
         ]
         
@@ -162,7 +163,8 @@ def train_neural_chess_engine_parallel(
             print(f"💾 Saving models after {completed_games} games...")
     
     # Final save
-    final_model_path = f"{model_name}_final.pth"
+    os.makedirs("models", exist_ok=True)
+    final_model_path = f"models/{model_name}_final.pth"
     if game_results:
         # Use the last completed game's model as the final model
         last_game_result = game_results[-1]
@@ -220,7 +222,7 @@ def train_neural_chess_engine(
         print(f"\n🎮 Game {game_num + 1}/{num_games}")
         
         # Play a game and collect training data
-        game_result = engine.self_play_game(max_moves=50)
+        game_result = engine.self_play_game()
         
         if game_result['game_data']:
             # Get final game score
@@ -249,7 +251,8 @@ def train_neural_chess_engine(
             
             # Save model periodically
             if (game_num + 1) % save_interval == 0:
-                model_path = f"{model_name}_game_{game_num + 1}.pth"
+                os.makedirs("models", exist_ok=True)
+                model_path = f"models/{model_name}_game_{game_num + 1}.pth"
                 torch.save(engine.model.state_dict(), model_path)
                 print(f"💾 Model saved: {model_path}")
                 
@@ -266,7 +269,8 @@ def train_neural_chess_engine(
         print(f"⏰ ETA: {eta/60:.1f} minutes")
     
     # Final save
-    final_model_path = f"{model_name}_final.pth"
+    os.makedirs("models", exist_ok=True)
+    final_model_path = f"models/{model_name}_final.pth"
     torch.save(engine.model.state_dict(), final_model_path)
     print(f"\n💾 Final model saved: {final_model_path}")
     
@@ -287,8 +291,10 @@ def train_neural_chess_engine(
     return engine
 
 def test_trained_model(model_path, num_test_games=10):
-    """Test a trained neural chess model"""
+    """Test a trained neural chess model - PURE EVALUATION ONLY, NO LEARNING"""
     print(f"\n🧪 Testing trained model: {model_path}")
+    print("=" * 40)
+    print("⚠️  TESTING MODE: Model weights will NOT be updated during testing")
     print("=" * 40)
     
     # Load trained model
@@ -346,6 +352,32 @@ def main():
     """Main training and testing function"""
     print("🧠 Neural Chess Engine - Training and Testing")
     print("=" * 50)
+    print("Choose an option:")
+    print("1. 🚀 Train new model")
+    print("2. 🧪 Test existing model (evaluation only)")
+    print("3. 🔄 Train and then test")
+    
+    choice = input("\nEnter your choice (1-3): ").strip()
+    
+    if choice == "1":
+        # Training only
+        run_training()
+    elif choice == "2":
+        # Testing only
+        run_testing()
+    elif choice == "3":
+        # Train then test
+        run_training()
+        print("\n" + "="*50)
+        run_testing()
+    else:
+        print("Invalid choice. Running training by default.")
+        run_training()
+
+def run_training():
+    """Run the training process"""
+    print("\n🚀 TRAINING MODE")
+    print("=" * 30)
     
     # Training parameters
     NUM_GAMES = 30  # Start with fewer games for testing
@@ -353,45 +385,63 @@ def main():
     LEARNING_RATE = 0.001
     NUM_PARALLEL_GAMES = 3  # Run 3 games simultaneously
     
-    # Choose training mode
-    print("Choose training mode:")
-    print("1. Parallel training (3 games simultaneously) - RECOMMENDED")
-    print("2. Single-threaded training (1 game at a time)")
+    # Get number of games from user
+    try:
+        num_games = int(input(f"Enter number of games to train (default: {NUM_GAMES}): ").strip() or NUM_GAMES)
+    except ValueError:
+        num_games = NUM_GAMES
+        print(f"Invalid input, using default: {NUM_GAMES} games")
     
-    choice = input("Enter choice (1 or 2): ").strip()
+    print(f"\n🚀 Starting unified training for {num_games} games...")
+    print(f"Running {NUM_PARALLEL_GAMES} games simultaneously")
     
-    if choice == "1":
-        print("\n🚀 Starting PARALLEL training...")
-        print(f"Running {NUM_PARALLEL_GAMES} games simultaneously")
-        game_results = train_neural_chess_engine_parallel(
-            num_games=NUM_GAMES,
-            epochs_per_game=EPOCHS_PER_GAME,
-            learning_rate=LEARNING_RATE,
-            save_interval=10,
-            model_name="chess_neural",
-            num_parallel_games=NUM_PARALLEL_GAMES
-        )
-        
-        # Test the trained model
-        print("\n🧪 Testing trained model...")
-        test_trained_model("chess_neural_final.pth", num_test_games=5)
-        
-    else:
-        print("\n🚀 Starting SINGLE-THREADED training...")
-        trained_engine = train_neural_chess_engine(
-            num_games=NUM_GAMES,
-            epochs_per_game=EPOCHS_PER_GAME,
-            learning_rate=LEARNING_RATE,
-            save_interval=10,
-            model_name="chess_neural"
-        )
-        
-        # Test the trained model
-        print("\n🧪 Testing trained model...")
-        test_trained_model("chess_neural_final.pth", num_test_games=5)
+    game_results = train_neural_chess_engine_parallel(
+        num_games=num_games,
+        epochs_per_game=EPOCHS_PER_GAME,
+        learning_rate=LEARNING_RATE,
+        save_interval=10,
+        model_name="chess_neural",
+        num_parallel_games=NUM_PARALLEL_GAMES
+    )
     
-    print("\n🎉 All done! The neural chess engine has learned to play chess!")
-    print("📜 All games have been saved to 'game_histories.pgn'")
+    print("\n🎉 Training completed!")
+    print("📜 All games have been saved to 'games/game_histories.pgn'")
+    print("🧠 All models have been saved to 'models/' directory")
+
+def run_testing():
+    """Run the testing process"""
+    print("\n🧪 TESTING MODE")
+    print("=" * 30)
+    
+    # Check for available models
+    models_dir = "models"
+    if not os.path.exists(models_dir):
+        print("❌ No models directory found. Please train a model first.")
+        return
+    
+    model_files = [f for f in os.listdir(models_dir) if f.endswith('.pth')]
+    if not model_files:
+        print("❌ No model files found. Please train a model first.")
+        return
+    
+    print("Available models:")
+    for i, model in enumerate(sorted(model_files)):
+        print(f"  {i+1}. {model}")
+    
+    try:
+        choice = int(input(f"\nSelect model to test (1-{len(model_files)}): ").strip())
+        if 1 <= choice <= len(model_files):
+            selected_model = sorted(model_files)[choice-1]
+            model_path = f"{models_dir}/{selected_model}"
+            
+            num_test_games = int(input("Enter number of test games (default: 5): ").strip() or "5")
+            
+            print(f"\n🧪 Testing model: {selected_model}")
+            test_trained_model(model_path, num_test_games)
+        else:
+            print("Invalid choice.")
+    except (ValueError, IndexError):
+        print("Invalid input. Please try again.")
 
 if __name__ == "__main__":
     main()

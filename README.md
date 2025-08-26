@@ -101,8 +101,8 @@ python chess_engine.py
 ```bash
 python run_neural.py demo          # Basic neural learning demo
 python run_neural.py train         # Full neural training
-python run_neural.py grandmaster   # 🏆 Grandmaster+ training (2-6 months)
-python run_neural.py test          # Test grandmaster system
+python run_neural.py                # 🧠 Neural network training
+python run_neural.py test          # Test neural system
 ```
 
 #### **Visual Training (Recommended!)**
@@ -161,7 +161,7 @@ chess-engine/
 │   ├── neural_chess_engine.py   # Neural network-based engine
 │   ├── train_neural_chess.py    # Training script
 │   ├── neural_demo.py           # Learning demonstration
-│   ├── grandmaster_training.py  # 🏆 Grandmaster+ training (2-6 months)
+│   ├── train_neural_chess.py    # 🧠 Neural network training
 │   └── __init__.py              # Package initialization
 │
 ├── 📁 visual/                   # Visual components
@@ -174,11 +174,11 @@ chess-engine/
 ├── 📁 docs/                     # Documentation
 │   ├── NEURAL_README.md          # Neural engine guide
 │   ├── PROJECT_SUMMARY.md        # Complete project overview
-│   └── GRANDMASTER_ROADMAP.md    # 🏆 Grandmaster+ training roadmap
+│   └── NEURAL_README.md          # 🧠 Neural training guide
 │
 ├── 📁 tests/                    # Test files
 │   ├── test_engine.py            # Traditional engine tests
-│   ├── test_grandmaster.py      # Grandmaster system tests
+│   └── test_engine.py           # Traditional engine tests
 │   └── __init__.py              # Package initialization
 │
 ├── 📁 scripts/                  # Utility scripts
@@ -242,20 +242,18 @@ python run_neural.py train          # Custom training parameters
 python run_traditional.py uci       # Use with chess GUIs
 ```
 
-#### **5. 🏆 Grandmaster+ Training (Advanced!)**
+#### **5. 🧠 Neural Network Training (Advanced!)**
 
 ```bash
-python run_neural.py grandmaster    # Train to 2800+ ELO (2-6 months)
+python run_neural.py                # Start neural network training
 ```
 
-**WARNING**: Grandmaster training requires serious commitment and computational resources!
+**What it does**:
 
-- **Total Games**: 91,000 games
-- **Training Time**: 2-6 months (24/7)
-- **Hardware**: 16+ CPU cores, 32GB+ RAM recommended
-- **Target**: Above grandmaster level (2800+ ELO)
-
-See `docs/GRANDMASTER_ROADMAP.md` for complete details.
+- **Target**: Configurable number of training games
+- **Duration**: Depends on number of games specified
+- **Games**: User-specified number of self-play games
+- **Result**: Trained neural chess AI
 
 ## 🔧 **Training Parameters**
 
@@ -325,13 +323,13 @@ python visual_training.py         # Choose option 1 for multiple games
 
 ## 🏆 **Achievement Levels**
 
-| Level              | Command                            | Time       | What You'll See                   |
-| ------------------ | ---------------------------------- | ---------- | --------------------------------- |
-| **Beginner**       | `python interactive.py`            | 5 min      | Traditional chess engine          |
-| **Explorer**       | `python simple_visual_training.py` | 10 min     | Neural learning with visual board |
-| **Learner**        | `python visual_training.py`        | 30 min     | Multiple games, progress tracking |
-| **Master**         | `python train_neural_chess.py`     | 2+ hours   | Full training, save models        |
-| **🏆 Grandmaster** | `python grandmaster_training.py`   | 2-6 months | Superhuman chess AI (2800+ ELO)   |
+| Level              | Command                            | Time         | What You'll See                   |
+| ------------------ | ---------------------------------- | ------------ | --------------------------------- |
+| **Beginner**       | `python interactive.py`            | 5 min        | Traditional chess engine          |
+| **Explorer**       | `python simple_visual_training.py` | 10 min       | Neural learning with visual board |
+| **Learner**        | `python visual_training.py`        | 30 min       | Multiple games, progress tracking |
+| **Master**         | `python train_neural_chess.py`     | 2+ hours     | Full training, save models        |
+| **🏆 Grandmaster** | `python run_neural.py`             | Configurable | Trained neural chess AI           |
 
 ## 🎉 **Why This Project is Special**
 

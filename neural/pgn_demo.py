@@ -47,7 +47,7 @@ def demo_pgn_generation():
         engine.save_game_to_history(pgn_game, 1, game_result)
         
         print("\n🎉 PGN generation demo completed!")
-        print("Check 'game_histories.pgn' for the saved game.")
+        print("Check 'games/game_histories.pgn' for the saved game.")
         
     else:
         print("❌ No game data generated")
@@ -85,7 +85,7 @@ def demo_multiple_games():
         engine.reset_board()
     
     print(f"\n🎉 {num_games} games completed and saved to PGN!")
-    print("Check 'game_histories.pgn' for all games.")
+            print("Check 'games/game_histories.pgn' for all games.")
 
 def main():
     """Main demo function"""
@@ -108,7 +108,7 @@ def main():
     print("✅ Game histories being saved")
     print("✅ Rich metadata included")
     print("\n📁 Generated files:")
-    print("   • game_histories.pgn - Contains all demo games")
+    print("   • games/game_histories.pgn - Contains all demo games")
     print("\n🚀 Ready for full training with PGN generation!")
 
 if __name__ == "__main__":

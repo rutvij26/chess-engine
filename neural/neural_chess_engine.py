@@ -80,13 +80,24 @@ class NeuralChessEngine:
     
     def __init__(self, model_path: str = None, visual_mode: bool = True):
         self.board = chess.Board()
-        self.model = ChessNeuralNetwork()
+        
+        # GPU acceleration setup
+        self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+        print(f"🚀 Using device: {self.device}")
+        if torch.cuda.is_available():
+            print(f"🎮 GPU: {torch.cuda.get_device_name(0)}")
+            print(f"💾 GPU Memory: {torch.cuda.get_device_properties(0).total_memory / 1024**3:.1f} GB")
+        
+        self.model = ChessNeuralNetwork().to(self.device)
         self.optimizer = optim.Adam(self.model.parameters(), lr=0.001)
         self.criterion = nn.MSELoss()
         
         # Load pre-trained model if available
         if model_path and os.path.exists(model_path):
-            self.model.load_state_dict(torch.load(model_path))
+            # Load to CPU first, then move to device
+            checkpoint = torch.load(model_path, map_location='cpu')
+            self.model.load_state_dict(checkpoint)
+            self.model = self.model.to(self.device)
             print(f"Loaded model from {model_path}")
         
         self.model.eval()
@@ -140,7 +151,7 @@ class NeuralChessEngine:
                 
                 tensor[channel, rank, file] = 1.0
         
-        return tensor.unsqueeze(0)  # Add batch dimension
+        return tensor.unsqueeze(0).to(self.device)  # Add batch dimension and move to device
     
     def evaluate_position_neural(self, board: chess.Board) -> float:
         """Evaluate position using neural network"""
@@ -231,19 +242,19 @@ class NeuralChessEngine:
         
         return best_score, best_move
     
-    def self_play_game(self, max_moves: int = 100, show_progress: bool = True) -> Dict[str, Any]:
+    def self_play_game(self, show_progress: bool = True) -> Dict[str, Any]:
         """Play a game against itself and return training data with game information"""
         self.board = chess.Board()
         game_data = []
         move_history = []
+        move_num = 0
         
         if show_progress and self.visual_mode:
             self.visual_board.display_board(self.board, evaluation=0.0, move_number=1)
             time.sleep(0.5)
         
-        for move_num in range(max_moves):
-            if self.board.is_game_over():
-                break
+        while not self.board.is_game_over():
+            move_num += 1
             
             # Get evaluation before move
             pre_eval = self.evaluate_position_neural(self.board)
@@ -329,8 +340,11 @@ class NeuralChessEngine:
             
             # Save model periodically
             if (game_num + 1) % 10 == 0:
-                torch.save(self.model.state_dict(), f"chess_model_game_{game_num + 1}.pth")
-                print(f"Model saved after {game_num + 1} games")
+                # Ensure models directory exists
+                os.makedirs("models", exist_ok=True)
+                model_path = f"models/chess_model_game_{game_num + 1}.pth"
+                torch.save(self.model.state_dict(), model_path)
+                print(f"💾 Model saved after {game_num + 1} games: {model_path}")
         
         print("Self-play training completed!")
     
@@ -339,9 +353,9 @@ class NeuralChessEngine:
         if len(self.training_positions) < 10:
             return
         
-        # Convert to tensors
-        positions = torch.cat(self.training_positions, dim=0)
-        evaluations = torch.tensor(self.training_evaluations, dtype=torch.float32).unsqueeze(1)
+        # Convert to tensors and move to device
+        positions = torch.cat(self.training_positions, dim=0).to(self.device)
+        evaluations = torch.tensor(self.training_evaluations, dtype=torch.float32).unsqueeze(1).to(self.device)
         
         # Create dataset and dataloader
         dataset = ChessDataset(positions, evaluations)
@@ -449,7 +463,9 @@ class NeuralChessEngine:
     
     def save_game_to_history(self, pgn_game: str, game_number: int, game_stats: Dict[str, Any] = None):
         """Save a completed game to the game histories file"""
-        history_file = "game_histories.pgn"
+        # Ensure games directory exists
+        os.makedirs("games", exist_ok=True)
+        history_file = "games/game_histories.pgn"
         
         # Create game header with metadata
         header = f"\n[Event \"Neural Chess Training Game {game_number}\"]\n"

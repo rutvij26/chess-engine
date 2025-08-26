@@ -19,7 +19,7 @@ chess-engine/
 │   ├── neural_chess_engine.py   # Neural network-based engine
 │   ├── train_neural_chess.py    # Training script
 │   ├── neural_demo.py           # Learning demonstration
-│   ├── grandmaster_training.py  # 🏆 Grandmaster+ training (2-6 months)
+│   ├── train_neural_chess.py    # 🧠 Neural network training
 │   └── __init__.py              # Package initialization
 │
 ├── 📁 visual/                   # Visual components
@@ -32,11 +32,11 @@ chess-engine/
 ├── 📁 docs/                     # Documentation
 │   ├── NEURAL_README.md          # Neural engine guide
 │   ├── PROJECT_SUMMARY.md        # Complete project overview
-│   └── GRANDMASTER_ROADMAP.md    # 🏆 Grandmaster+ training roadmap
+│   └── NEURAL_README.md          # 🧠 Neural training guide
 │
 ├── 📁 tests/                    # Test files
 │   ├── test_engine.py            # Traditional engine tests
-│   ├── test_grandmaster.py      # Grandmaster system tests
+│   └── test_engine.py           # Traditional engine tests
 │   └── __init__.py              # Package initialization
 │
 ├── 📁 scripts/                  # Utility scripts
@@ -81,8 +81,8 @@ python run_traditional.py test           # Run test suite
 ```bash
 python run_neural.py demo          # Basic neural learning demo
 python run_neural.py train         # Full neural training
-python run_neural.py grandmaster   # 🏆 Grandmaster+ training (2-6 months)
-python run_neural.py test          # Test grandmaster system
+python run_neural.py                # 🧠 Neural network training
+python run_neural.py test          # Test neural system
 ```
 
 #### **Visual Training**
@@ -122,7 +122,7 @@ python run_visual.py board         # Test the clean visual board
 - `README.md` - Complete command reference
 - `docs/NEURAL_README.md` - Neural engine guide
 - `docs/PROJECT_SUMMARY.md` - Complete project overview
-- `docs/GRANDMASTER_ROADMAP.md` - Grandmaster training roadmap
+- `docs/NEURAL_README.md` - Neural training guide
 
 ### **New Documentation**
 
@@ -141,7 +141,7 @@ python run_visual.py board         # Test the clean visual board
 | `python demo.py`                   | `python run_traditional.py demo`        |
 | `python neural_demo.py`            | `python run_neural.py demo`             |
 | `python train_neural_chess.py`     | `python run_neural.py train`            |
-| `python grandmaster_training.py`   | `python run_neural.py grandmaster`      |
+| `python train_neural_chess.py`     | `python run_neural.py`                  |
 | `python simple_visual_training.py` | `python run_visual.py simple`           |
 | `python visual_training.py`        | `python run_visual.py training`         |
 | `python visual_chess_board.py`     | `python run_visual.py board`            |

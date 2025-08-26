@@ -14,49 +14,19 @@ def main():
     print("🧠 Neural Chess Engine Runner")
     print("=" * 40)
     print("Choose an option:")
-    print("1. Basic Training (Single-threaded)")
-    print("2. Parallel Training (3 games simultaneously) - RECOMMENDED")
-    print("3. Grandmaster Training (Advanced)")
-    print("4. Interactive Play")
-    print("5. Visual Training Demo")
-    print("6. Exit")
+    print("1. Neural Network Training")
+    print("2. Interactive Play")
+    print("3. Visual Training Demo")
+    print("4. Exit")
     
-    choice = input("\nEnter your choice (1-6): ").strip()
+    choice = input("\nEnter your choice (1-4): ").strip()
     
     if choice == "1":
-        print("\n🚀 Starting Basic Training...")
-        from neural.train_neural_chess import train_neural_chess_engine
-        train_neural_chess_engine(
-            num_games=20,
-            epochs_per_game=3,
-            learning_rate=0.001,
-            save_interval=5,
-            model_name="chess_neural_basic"
-        )
+        print("\n🚀 Starting Neural Network Training...")
+        from neural.train_neural_chess import main as train_main
+        train_main()
         
     elif choice == "2":
-        print("\n🚀 Starting Parallel Training...")
-        from neural.train_neural_chess import train_neural_chess_engine_parallel
-        train_neural_chess_engine_parallel(
-            num_games=30,
-            epochs_per_game=3,
-            learning_rate=0.001,
-            save_interval=10,
-            model_name="chess_neural_parallel",
-            num_parallel_games=3
-        )
-        
-    elif choice == "3":
-        print("\n🏆 Starting Grandmaster Training...")
-        print("⚠️  WARNING: This will take a very long time!")
-        confirm = input("Continue? (y/n): ").lower().startswith('y')
-        if confirm:
-            from neural.grandmaster_training import main as grandmaster_main
-            grandmaster_main()
-        else:
-            print("Grandmaster training cancelled.")
-            
-    elif choice == "4":
         print("\n🎮 Starting Interactive Play...")
         from neural.neural_chess_engine import NeuralChessEngine
         engine = NeuralChessEngine()
@@ -92,12 +62,12 @@ def main():
         
         print("Game ended.")
         
-    elif choice == "5":
+    elif choice == "3":
         print("\n🎨 Starting Visual Training Demo...")
         from visual.visual_training import main as visual_main
         visual_main()
         
-    elif choice == "6":
+    elif choice == "4":
         print("Goodbye!")
         return
         
@@ -107,9 +77,9 @@ def main():
         return
     
     print("\n🎉 Session completed!")
-    print("📜 Check the generated PGN files:")
-    print("   - game_histories.pgn (basic training)")
-    print("   - grandmaster_game_histories.pgn (grandmaster training)")
+    print("📜 Check the generated files:")
+    print("   - games/game_histories.pgn (training games)")
+    print("   - models/ (trained neural network models)")
 
 if __name__ == "__main__":
     main()
