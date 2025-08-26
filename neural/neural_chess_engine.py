@@ -239,20 +239,31 @@ class NeuralChessEngine:
         move_history = []
         move_num = 0
         
+        print("      🎯 Starting new game...")
+        
         while not self.board.is_game_over():
             move_num += 1
             
             # Get evaluation before move
             pre_eval = self.evaluate_position_neural(self.board)
             
+            # Show current position info
+            if show_progress and move_num % 5 == 0:
+                turn_color = "White" if self.board.turn else "Black"
+                print(f"      📍 Move {move_num}: {turn_color}'s turn - Eval: {pre_eval:.2f}")
+            
             # Make a move (either best move or random for exploration)
             if random.random() < 0.8:  # 80% best move, 20% random
+                if show_progress and move_num % 5 == 0:
+                    print(f"      🤖 Thinking... (best move)")
                 best_move = self.get_best_move(3, 1.0, verbose=False)
                 if best_move:
                     move = chess.Move.from_uci(best_move)
                     move_history.append(move.uci())
                     self.board.push(move)
             else:
+                if show_progress and move_num % 5 == 0:
+                    print(f"      🎲 Exploring... (random move)")
                 legal_moves = list(self.board.legal_moves)
                 if legal_moves:
                     move = random.choice(legal_moves)
@@ -270,13 +281,27 @@ class NeuralChessEngine:
             self.training_positions.append(position_tensor)
             self.training_evaluations.append(post_eval)
             
-            # Show progress if requested
+            # Show detailed progress every 10 moves
             if show_progress and move_num % 10 == 0:
-                print(f"Move {move_num}: {move_history[-1]} (eval: {post_eval:.2f})")
+                eval_change = post_eval - pre_eval
+                eval_arrow = "↗️" if eval_change > 0 else "↘️" if eval_change < 0 else "→"
+                print(f"      📊 Move {move_num}: {move_history[-1]} | Eval: {pre_eval:.2f} → {post_eval:.2f} {eval_arrow}")
+                
+                # Show game status
+                if self.board.is_check():
+                    print(f"      ⚠️  CHECK!")
+                elif self.board.is_checkmate():
+                    print(f"      🎯 CHECKMATE!")
+                    break
         
         # Get final game result
         final_result = self.get_game_result()
         final_evaluation = self.evaluate_position_neural(self.board)
+        
+        if show_progress:
+            print(f"      🏁 Game completed in {move_num} moves")
+            print(f"      📊 Final evaluation: {final_evaluation:.2f}")
+            print(f"      🎯 Result: {final_result}")
         
         return {
             'game_data': game_data,
@@ -351,6 +376,59 @@ class NeuralChessEngine:
             print(f"Epoch {epoch + 1}, Average Loss: {avg_loss:.4f}")
         
         self.model.eval()
+    
+    def train_model_with_progress(self, epochs: int = 1):
+        """Train the neural network with detailed progress indicators"""
+        if len(self.training_positions) < 10:
+            print("   ⚠️  Not enough training data (< 10 positions)")
+            return
+        
+        print(f"   📊 Training on {len(self.training_positions)} positions...")
+        
+        # Convert to tensors and move to device
+        positions = torch.cat(self.training_positions, dim=0).to(self.device)
+        evaluations = torch.tensor(self.training_evaluations, dtype=torch.float32).unsqueeze(1).to(self.device)
+        
+        # Create dataset and dataloader
+        dataset = ChessDataset(positions, evaluations)
+        dataloader = DataLoader(dataset, batch_size=32, shuffle=True)
+        
+        self.model.train()
+        
+        total_batches = len(dataloader)
+        print(f"   🔄 {total_batches} batches per epoch")
+        
+        for epoch in range(epochs):
+            print(f"   🧠 Epoch {epoch + 1}/{epochs}:")
+            total_loss = 0
+            batch_count = 0
+            
+            for batch_positions, batch_evaluations in dataloader:
+                self.optimizer.zero_grad()
+                
+                outputs = self.model(batch_positions)
+                loss = self.criterion(outputs, batch_evaluations)
+                
+                loss.backward()
+                self.optimizer.step()
+                
+                total_loss += loss.item()
+                batch_count += 1
+                
+                # Show progress every few batches
+                if batch_count % max(1, total_batches // 10) == 0 or batch_count == total_batches:
+                    progress = (batch_count / total_batches) * 100
+                    current_loss = loss.item()
+                    print(f"      📈 Batch {batch_count}/{total_batches} ({progress:.1f}%) - Loss: {current_loss:.4f}")
+            
+            avg_loss = total_loss / total_batches
+            print(f"   ✅ Epoch {epoch + 1} completed - Avg Loss: {avg_loss:.4f}")
+            
+            # Store loss for tracking
+            self.last_loss = avg_loss
+        
+        self.model.eval()
+        print(f"   🎯 Training completed - Final Loss: {self.last_loss:.4f}")
     
     def save_training_data(self, filename: str = "chess_training_data.pkl"):
         """Save training data to file"""

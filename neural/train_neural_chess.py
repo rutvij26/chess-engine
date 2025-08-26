@@ -16,6 +16,8 @@ import os
 import multiprocessing as mp
 from concurrent.futures import ProcessPoolExecutor, as_completed
 import chess.pgn
+import threading
+import datetime
 
 def plot_training_progress(losses, game_scores, save_path="training_progress.png"):
     """Plot training progress"""
@@ -38,6 +40,63 @@ def plot_training_progress(losses, game_scores, save_path="training_progress.png
     plt.tight_layout()
     plt.savefig(save_path)
     plt.show()
+
+def display_training_status(game_results, game_scores, start_time, num_games):
+    """Display real-time training status"""
+    if not game_results:
+        return
+    
+    completed = len(game_results)
+    elapsed = time.time() - start_time
+    progress = (completed / num_games) * 100
+    
+    # Clear screen (works on most terminals)
+    os.system('cls' if os.name == 'nt' else 'clear')
+    
+    print("🧠 NEURAL CHESS ENGINE - LIVE TRAINING STATUS")
+    print("=" * 60)
+    print(f"🕐 Started: {datetime.datetime.fromtimestamp(start_time).strftime('%H:%M:%S')}")
+    print(f"🕐 Current: {datetime.datetime.now().strftime('%H:%M:%S')}")
+    print(f"⏱️  Elapsed: {elapsed/60:.1f} minutes")
+    print()
+    
+    # Progress bar
+    bar_length = 40
+    filled = int(bar_length * progress / 100)
+    progress_bar = "█" * filled + "░" * (bar_length - filled)
+    print(f"📊 Progress: {progress_bar} {progress:.1f}%")
+    print(f"🎮 Games: {completed}/{num_games}")
+    print()
+    
+    # Recent games
+    print("🎯 RECENT GAMES:")
+    for i, result in enumerate(game_results[-5:]):  # Show last 5 games
+        game_num = result['game_num']
+        score = result['final_score']
+        moves = result['moves_played']
+        result_str = result['result']
+        print(f"   Game {game_num}: Score {score:.2f} | Moves {moves} | Result {result_str}")
+    
+    print()
+    
+    # Performance metrics
+    if game_scores:
+        avg_score = sum(game_scores) / len(game_scores)
+        best_score = max(game_scores)
+        worst_score = min(game_scores)
+        print(f"📈 PERFORMANCE:")
+        print(f"   Average Score: {avg_score:.2f}")
+        print(f"   Best Score: {best_score:.2f}")
+        print(f"   Worst Score: {worst_score:.2f}")
+        
+        # ETA calculation
+        if completed > 0:
+            avg_time_per_game = elapsed / completed
+            remaining_games = num_games - completed
+            eta = remaining_games * avg_time_per_game
+            print(f"   ⏰ ETA: {eta/60:.1f} minutes")
+    
+    print("=" * 60)
 
 def play_single_game(game_params):
     """Play a single game and return results - for parallel execution"""
@@ -104,6 +163,11 @@ def train_neural_chess_engine_parallel(
     print(f"Learning rate: {learning_rate}")
     print("=" * 50)
     
+    # Adjust parallel games if num_games is less than parallel games
+    actual_parallel_games = min(num_parallel_games, num_games)
+    if actual_parallel_games != num_parallel_games:
+        print(f"⚠️  Adjusted parallel games from {num_parallel_games} to {actual_parallel_games} (num_games: {num_games})")
+    
     # Training tracking
     all_losses = []
     game_scores = []
@@ -111,12 +175,19 @@ def train_neural_chess_engine_parallel(
     
     start_time = time.time()
     
+    # Start real-time status display in a separate thread
+    status_thread = threading.Thread(
+        target=lambda: status_updater(game_results, game_scores, start_time, num_games),
+        daemon=True
+    )
+    status_thread.start()
+    
     # Process games in batches of parallel games
-    for batch_start in range(0, num_games, num_parallel_games):
-        batch_end = min(batch_start + num_parallel_games, num_games)
+    for batch_start in range(0, num_games, actual_parallel_games):
+        batch_end = min(batch_start + actual_parallel_games, num_games)
         batch_size = batch_end - batch_start
         
-        print(f"\n🚀 Starting batch {batch_start//num_parallel_games + 1}: Games {batch_start + 1}-{batch_end}")
+        print(f"\n🚀 Starting batch {batch_start//actual_parallel_games + 1}: Games {batch_start + 1}-{batch_end}")
         
         # Prepare game parameters for this batch
         game_params = [
@@ -125,42 +196,71 @@ def train_neural_chess_engine_parallel(
         ]
         
         # Execute games in parallel
-        with ProcessPoolExecutor(max_workers=num_parallel_games) as executor:
+        print(f"      🚀 Submitting {len(game_params)} games to parallel executor...")
+        
+        with ProcessPoolExecutor(max_workers=actual_parallel_games) as executor:
             # Submit all games in the batch
             future_to_game = {
                 executor.submit(play_single_game, params): params[0] 
                 for params in game_params
             }
             
-            # Collect results as they complete
+            print(f"      ⏳ Waiting for games to complete...")
+            completed_in_batch = 0
+            
+            # Collect results as they complete with timeout
             for future in as_completed(future_to_game):
                 game_num = future_to_game[future]
                 try:
-                    result = future.result()
+                    # Add timeout to prevent hanging
+                    result = future.result(timeout=300)  # 5 minutes timeout per game
                     game_results.append(result)
                     game_scores.append(result['final_score'])
                     
                     if result['loss'] > 0:
                         all_losses.append(result['loss'])
                     
-                    print(f"✅ Game {game_num} completed successfully")
+                    completed_in_batch += 1
+                    print(f"      ✅ Game {game_num} completed ({completed_in_batch}/{len(game_params)})")
+                    
+                    # Show batch progress
+                    if completed_in_batch < len(game_params):
+                        remaining = len(game_params) - completed_in_batch
+                        print(f"      ⏳ Waiting for {remaining} more game(s)...")
                     
                 except Exception as e:
-                    print(f"❌ Game {game_num} failed: {e}")
+                    print(f"      ❌ Game {game_num} failed: {e}")
+                    # Cancel the future to free up resources
+                    future.cancel()
         
-        # Progress update
+        # Progress update with detailed statistics
         completed_games = len(game_results)
         elapsed = time.time() - start_time
         avg_time_per_game = elapsed / completed_games
         remaining_games = num_games - completed_games
         eta = remaining_games * avg_time_per_game
         
-        print(f"⏱️  Progress: {completed_games}/{num_games} ({100 * completed_games / num_games:.1f}%)")
-        print(f"⏰ ETA: {eta/60:.1f} minutes")
+        # Create a visual progress bar
+        progress_bar_length = 30
+        filled_length = int(progress_bar_length * completed_games / num_games)
+        progress_bar = "█" * filled_length + "░" * (progress_bar_length - filled_length)
+        
+        print(f"\n📊 BATCH PROGRESS SUMMARY:")
+        print(f"   {progress_bar} {completed_games}/{num_games} ({100 * completed_games / num_games:.1f}%)")
+        print(f"   ⏱️  Elapsed: {elapsed/60:.1f} minutes")
+        print(f"   ⏰ Avg time per game: {avg_time_per_game/60:.1f} minutes")
+        print(f"   🎯 ETA: {eta/60:.1f} minutes")
+        
+        # Show performance metrics
+        if game_scores:
+            avg_score = sum(game_scores) / len(game_scores)
+            best_score = max(game_scores)
+            print(f"   📈 Avg score: {avg_score:.2f}")
+            print(f"   🏆 Best score: {best_score:.2f}")
         
         # Save models periodically
         if completed_games % save_interval == 0:
-            print(f"💾 Saving models after {completed_games} games...")
+            print(f"   💾 Saving models after {completed_games} games...")
     
     # Final save
     os.makedirs("models", exist_ok=True)
@@ -187,6 +287,12 @@ def train_neural_chess_engine_parallel(
             print(f"Could not plot progress: {e}")
     
     return game_results
+
+def status_updater(game_results, game_scores, start_time, num_games):
+    """Update status display every few seconds"""
+    while len(game_results) < num_games:
+        time.sleep(5)  # Update every 5 seconds
+        display_training_status(game_results, game_scores, start_time, num_games)
 
 def train_neural_chess_engine(
     num_games=100,
@@ -220,21 +326,25 @@ def train_neural_chess_engine(
     
     for game_num in range(num_games):
         print(f"\n🎮 Game {game_num + 1}/{num_games}")
+        print("=" * 40)
         
         # Play a game and collect training data
-        game_result = engine.self_play_game()
+        print("🎯 Playing game...")
+        game_result = engine.self_play_game(show_progress=True)
         
         if game_result['game_data']:
             # Get final game score
             final_score = game_result['final_evaluation']
             game_scores.append(final_score)
             
-            print(f"Game length: {game_result['moves_played']} moves")
-            print(f"Final score: {final_score:.2f}")
-            print(f"Game result: {game_result['result']}")
+            print(f"📊 Game Summary:")
+            print(f"   Length: {game_result['moves_played']} moves")
+            print(f"   Final score: {final_score:.2f}")
+            print(f"   Result: {game_result['result']}")
             
             # Generate and save PGN for this game
             if game_result['move_history']:
+                print("📜 Generating PGN...")
                 pgn_game = engine.generate_pgn_game(
                     game_result['move_history'], 
                     game_result['result']
@@ -242,8 +352,8 @@ def train_neural_chess_engine(
                 engine.save_game_to_history(pgn_game, game_num + 1, game_result)
             
             # Train the model
-            print("Training model...")
-            engine.train_model(epochs_per_game)
+            print("🧠 Training model...")
+            engine.train_model_with_progress(epochs_per_game)
             
             # Track loss (simplified - using last batch loss)
             if hasattr(engine, 'last_loss'):
@@ -259,14 +369,30 @@ def train_neural_chess_engine(
                 # Save training data
                 engine.save_training_data(f"training_data_game_{game_num + 1}.pkl")
         
-        # Progress update
+        # Progress update with visual bar
         elapsed = time.time() - start_time
         avg_time_per_game = elapsed / (game_num + 1)
         remaining_games = num_games - (game_num + 1)
         eta = remaining_games * avg_time_per_game
         
-        print(f"⏱️  Progress: {game_num + 1}/{num_games} ({100 * (game_num + 1) / num_games:.1f}%)")
-        print(f"⏰ ETA: {eta/60:.1f} minutes")
+        # Create progress bar
+        progress_bar_length = 30
+        filled_length = int(progress_bar_length * (game_num + 1) / num_games)
+        progress_bar = "█" * filled_length + "░" * (progress_bar_length - filled_length)
+        
+        print(f"\n📊 OVERALL PROGRESS:")
+        print(f"   {progress_bar} {game_num + 1}/{num_games} ({100 * (game_num + 1) / num_games:.1f}%)")
+        print(f"   ⏱️  Elapsed: {elapsed/60:.1f} minutes")
+        print(f"   ⏰ ETA: {eta/60:.1f} minutes")
+        
+        # Show performance so far
+        if game_scores:
+            avg_score = sum(game_scores) / len(game_scores)
+            best_score = max(game_scores)
+            print(f"   📈 Avg score: {avg_score:.2f}")
+            print(f"   🏆 Best score: {best_score:.2f}")
+        
+        print("=" * 40)
     
     # Final save
     os.makedirs("models", exist_ok=True)
