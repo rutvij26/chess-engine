@@ -542,23 +542,32 @@ def main():
     print("1. 🚀 Train model (incremental - continues from existing version)")
     print("2. 🧪 Test existing model (evaluation only)")
     print("3. 🔄 Train and then test")
+    print("4. 🚪 Quit")
     
-    choice = input("\nEnter your choice (1-3): ").strip()
-    
-    if choice == "1":
-        # Training only
-        run_training()
-    elif choice == "2":
-        # Testing only
-        run_testing()
-    elif choice == "3":
-        # Train then test
-        run_training()
-        print("\n" + "="*50)
-        run_testing()
-    else:
-        print("Invalid choice. Running training by default.")
-        run_training()
+    while True:
+        choice = input("\nEnter your choice (1-4): ").strip()
+        
+        if choice == "1":
+            # Training only
+            run_training()
+            break
+        elif choice == "2":
+            # Testing only
+            run_testing()
+            break
+        elif choice == "3":
+            # Train then test
+            run_training()
+            print("\n" + "="*50)
+            run_testing()
+            break
+        elif choice == "4":
+            # Quit
+            print("\n👋 Thanks for using Neural Chess Engine!")
+            print("🚪 Exiting...")
+            sys.exit(0)
+        else:
+            print("❌ Invalid choice. Please enter 1, 2, 3, or 4.")
 
 def run_training():
     """Run the training process"""
