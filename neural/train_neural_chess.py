@@ -539,7 +539,7 @@ def main():
     print("🧠 Neural Chess Engine - Training and Testing")
     print("=" * 50)
     print("Choose an option:")
-    print("1. 🚀 Train new model")
+    print("1. 🚀 Train model (incremental - continues from existing version)")
     print("2. 🧪 Test existing model (evaluation only)")
     print("3. 🔄 Train and then test")
     
@@ -562,7 +562,7 @@ def main():
 
 def run_training():
     """Run the training process"""
-    print("\n🚀 TRAINING MODE")
+    print("\n🚀 INCREMENTAL TRAINING MODE")
     print("=" * 30)
     
     # Training parameters
@@ -638,7 +638,11 @@ def run_training():
         
         print("\n🎉 Training completed!")
         print("📜 All games have been saved to 'games/game_histories.pgn'")
-        print(f"🧠 New model version saved: {base_model_name}_final.pth")
+        if existing_model_path:
+            print(f"🧠 Model version {base_model_name} created by continuing training from previous version")
+        else:
+            print(f"🧠 Fresh model version {base_model_name} created from scratch")
+        print(f"💾 Model saved as: {base_model_name}_final.pth")
         
     except Exception as e:
         print(f"\n💥 Training failed: {e}")
