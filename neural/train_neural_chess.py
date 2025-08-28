@@ -114,7 +114,7 @@ def display_training_status(game_results, game_scores, start_time, num_games):
 
 def play_single_game(game_params):
     """Play a single game and return results - for parallel execution"""
-    game_num, epochs_per_game, learning_rate, model_name, existing_model_path = game_params
+    game_num, epochs_per_game, learning_rate, model_name, existing_model_path, randomness = game_params
     
     # Create engine instance - load existing model if available
     if existing_model_path and os.path.exists(existing_model_path):
@@ -131,7 +131,7 @@ def play_single_game(game_params):
     print(f"🎮 Game {game_num} starting...")
     
     # Play the game with progress enabled
-    game_result = engine.self_play_game(show_progress=True)
+    game_result = engine.self_play_game(show_progress=True, randomness=randomness)
     
     # Generate PGN for this game
     if game_result['move_history']:
@@ -171,7 +171,8 @@ def train_neural_chess_engine_parallel(
     save_interval=10,
     model_name="chess_neural_model",
     num_parallel_games=3,
-    existing_model_path=None
+    existing_model_path=None,
+    randomness=0.2
 ):
     """Train the neural chess engine through parallel self-play"""
     
@@ -181,6 +182,10 @@ def train_neural_chess_engine_parallel(
     print(f"Parallel games: {num_parallel_games}")
     print(f"Epochs per game: {epochs_per_game}")
     print(f"Learning rate: {learning_rate}")
+    if randomness > 0:
+        print(f"🎲 Randomness: {randomness*100:.0f}% (exploration)")
+    else:
+        print("🤖 Always best move (deterministic)")
     print("=" * 50)
     
     # Adjust parallel games if num_games is less than parallel games
@@ -212,7 +217,7 @@ def train_neural_chess_engine_parallel(
             
             # Prepare game parameters for this batch
             game_params = [
-                (game_num + 1, epochs_per_game, learning_rate, model_name, existing_model_path)
+                (game_num + 1, epochs_per_game, learning_rate, model_name, existing_model_path, randomness)
                 for game_num in range(batch_start, batch_end)
             ]
             
@@ -257,9 +262,16 @@ def train_neural_chess_engine_parallel(
             # Progress update with detailed statistics
             completed_games = len(game_results)
             elapsed = time.time() - start_time
-            avg_time_per_game = elapsed / completed_games
-            remaining_games = num_games - completed_games
-            eta = remaining_games * avg_time_per_game
+            
+            # Avoid division by zero
+            if completed_games > 0:
+                avg_time_per_game = elapsed / completed_games
+                remaining_games = num_games - completed_games
+                eta = remaining_games * avg_time_per_game
+            else:
+                avg_time_per_game = 0
+                remaining_games = num_games
+                eta = 0
             
             # Create a visual progress bar
             progress_bar_length = 30
@@ -355,7 +367,8 @@ def train_neural_chess_engine(
     epochs_per_game=3,
     learning_rate=0.001,
     save_interval=10,
-    model_name="chess_neural_model"
+    model_name="chess_neural_model",
+    randomness=0.2
 ):
     """Train the neural chess engine through self-play (legacy single-threaded version)"""
     
@@ -364,6 +377,10 @@ def train_neural_chess_engine(
     print(f"Training for {num_games} games")
     print(f"Epochs per game: {epochs_per_game}")
     print(f"Learning rate: {learning_rate}")
+    if randomness > 0:
+        print(f"🎲 Randomness: {randomness*100:.0f}% (exploration)")
+    else:
+        print("🤖 Always best move (deterministic)")
     print("=" * 40)
     
     # Create engine
@@ -386,7 +403,7 @@ def train_neural_chess_engine(
         
         # Play a game and collect training data
         print("🎯 Playing game...")
-        game_result = engine.self_play_game(show_progress=True)
+        game_result = engine.self_play_game(show_progress=True, randomness=randomness)
         
         if game_result['game_data']:
             # Get final game score
@@ -427,9 +444,16 @@ def train_neural_chess_engine(
         
         # Progress update with visual bar
         elapsed = time.time() - start_time
-        avg_time_per_game = elapsed / (game_num + 1)
-        remaining_games = num_games - (game_num + 1)
-        eta = remaining_games * avg_time_per_game
+        
+        # Avoid division by zero
+        if game_num + 1 > 0:
+            avg_time_per_game = elapsed / (game_num + 1)
+            remaining_games = num_games - (game_num + 1)
+            eta = remaining_games * avg_time_per_game
+        else:
+            avg_time_per_game = 0
+            remaining_games = num_games
+            eta = 0
         
         # Create progress bar
         progress_bar_length = 30
@@ -498,12 +522,12 @@ def test_trained_model(model_path, num_test_games=10):
             best_move = engine.get_best_move(4, 2.0, verbose=False)
             
             if best_move:
-                engine.make_move(best_move)
+                engine.make_move(best_move.uci())
                 moves_played += 1
                 
                 # Show position every 10 moves
                 if moves_played % 10 == 0:
-                    print(f"Move {moves_played}: {best_move}")
+                    print(f"Move {moves_played}: {best_move.uci()}")
                     print(f"Position evaluation: {engine.evaluate_position_neural(engine.board):.2f}")
             else:
                 break
@@ -630,9 +654,29 @@ def run_training():
         num_games = NUM_GAMES
         print(f"Invalid input, using default: {NUM_GAMES} games")
     
+    # Get randomness setting from user
+    print("\n🎲 Randomness Settings:")
+    print("   0.0 = Always best move (deterministic)")
+    print("   0.2 = 20% random moves (balanced exploration) - RECOMMENDED")
+    print("   0.5 = 50% random moves (high exploration)")
+    print("   1.0 = Always random moves (pure exploration)")
+    
+    try:
+        randomness_input = input(f"Enter randomness (0.0-1.0, default: 0.2): ").strip() or "0.2"
+        randomness = float(randomness_input)
+        if not (0.0 <= randomness <= 1.0):
+            raise ValueError("Randomness must be between 0.0 and 1.0")
+    except ValueError:
+        randomness = 0.2
+        print(f"Invalid input, using default: 0.2 (20% randomness)")
+    
     print(f"\n🚀 Starting unified training for {num_games} games...")
     print(f"Running {NUM_PARALLEL_GAMES} games simultaneously")
     print(f"📚 Model version: {base_model_name}")
+    if randomness > 0:
+        print(f"🎲 Randomness: {randomness*100:.0f}% (exploration)")
+    else:
+        print("🤖 Always best move (deterministic)")
     
     try:
         game_results = train_neural_chess_engine_parallel(
@@ -642,7 +686,8 @@ def run_training():
             save_interval=10,
             model_name=base_model_name,
             num_parallel_games=NUM_PARALLEL_GAMES,
-            existing_model_path=existing_model_path
+            existing_model_path=existing_model_path,
+            randomness=randomness
         )
         
         print("\n🎉 Training completed!")

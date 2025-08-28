@@ -5,6 +5,8 @@ A self-learning chess engine that uses neural networks to play chess through sel
 ## 🚀 Features
 
 - **🧠 Neural Network Learning**: Self-improving AI through self-play
+- **📚 PGN Move Training**: Extend existing network with real game moves (supervised learning)
+- **⚔️ Model vs Model Battle**: Watch trained models compete against each other
 - **🚀 GPU Acceleration**: CUDA support for faster training (RTX 4070 recommended)
 - **📊 Self-Play Training**: Automatic game generation and learning
 - **💾 Model Checkpointing**: Save and load trained models
@@ -37,6 +39,46 @@ python run_neural.py
 ```
 
 Start neural network training directly.
+
+### 4. **PGN Move Training (Extend Existing Network)**
+
+```bash
+python run_pgn_move_training.py
+```
+
+Extend your existing neural network with real game moves from PGN files.
+
+### 5. **Model vs Model Battle**
+
+```bash
+python run_model_battle.py
+```
+
+Watch two trained models battle it out! Choose models, set game count, and see which one is stronger.
+
+### 6. **Randomness Training Demo**
+
+```bash
+python demo_randomness_training.py
+```
+
+Explore different randomness settings for self-play training. See how exploration vs. exploitation affects learning.
+
+### 7. **Tactical Evaluation Test**
+
+```bash
+python test_tactical_evaluation.py
+```
+
+Test the improved reward function with tactical validation, repetition prevention, and positional analysis.
+
+### 8. **Bug Fix Verification Test**
+
+```bash
+python test_fixes.py
+```
+
+Verify that recent bug fixes are working correctly before running training.
 
 ## 🏗️ Project Structure
 
@@ -79,6 +121,22 @@ chess-engine/
 - **Neural Evaluation**: Uses trained network for position scoring
 - **Alpha-Beta Pruning**: Optimized search with pruning
 - **Iterative Deepening**: Progressive depth increase
+
+### **Training Strategies**
+
+- **🎯 Deterministic Training** (`randomness=0.0`): Always choose best move for focused, consistent learning
+- **🎲 Balanced Exploration** (`randomness=0.2`): 20% random moves for balanced exploration (RECOMMENDED)
+- **🎲 High Exploration** (`randomness=0.5`): 50% random moves for breaking out of repetitive patterns
+- **🎲 Pure Exploration** (`randomness=1.0`): Always random moves for pure exploration and data collection
+
+### **Advanced Evaluation Features**
+
+- **🧠 Tactical Validation**: Prevents unsound moves that lose material
+- **🔄 Repetition Prevention**: Detects and penalizes excessive move repetition
+- **🎯 Positional Analysis**: Evaluates center control, development, and king safety
+- **♟️ Pawn Structure**: Analyzes isolated pawns, doubled pawns, and pawn chains
+- **⚠️ Hanging Piece Detection**: Identifies pieces that can be captured for free
+- **👑 Check Safety**: Evaluates whether checks are tactically sound
 
 ## 🚀 GPU Acceleration
 
@@ -170,6 +228,7 @@ If `False`, install PyTorch with CUDA support.
 ## 📚 Documentation
 
 - **📖 README.md** - This comprehensive guide
+- **📚 PGN_DATASET_TRAINING.md** - Fast training on game databases
 - **🚀 GPU_ACCELERATION_README.md** - Detailed GPU setup
 - **🔄 RESTRUCTURE_SUMMARY.md** - Project evolution history
 

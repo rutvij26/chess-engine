@@ -57,10 +57,10 @@ def demo_neural_learning():
     thinking_time = time.time() - start_time
     
     if best_move:
-        print(f"Best move: {best_move} (found in {thinking_time:.2f}s)")
+        print(f"Best move: {best_move.uci()} (found in {thinking_time:.2f}s)")
         
         # Make the move and show result
-        engine.make_move(best_move)
+        engine.make_move(best_move.uci())
         print("\nPosition after move:")
         engine.print_board()
         
